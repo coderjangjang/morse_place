@@ -1,33 +1,43 @@
 // Vercel Serverless Function — GET/POST /api/messages
-// 저장소: Upstash Redis (Vercel Marketplace에서 연결하면 환경변수 자동 주입)
-const URL_ = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-const TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+const { createClient } = require('redis');
+
 const KEEP = 200;               // 방마다 최근 N개만 보관
 const TTL = 60 * 60 * 24 * 7;   // 7일 지나면 방 자동 삭제
 
-async function redis(cmds) {
-  const r = await fetch(URL_ + '/pipeline', {
-    method: 'POST',
-    headers: { Authorization: 'Bearer ' + TOKEN, 'Content-Type': 'application/json' },
-    body: JSON.stringify(cmds),
-  });
-  if (!r.ok) throw new Error('redis ' + r.status);
-  return (await r.json()).map(x => { if (x.error) throw new Error(x.error); return x.result; });
+// REDIS_URL 또는 접두사가 붙은 변수(예: STORAGE_REDIS_URL)도 자동으로 찾음
+const REDIS_URL = process.env.REDIS_URL ||
+  process.env[Object.keys(process.env).find(k => /REDIS_URL$/.test(k)) || ''];
+
+let client = null, connecting = null;
+async function getClient() {
+  if (client && client.isOpen) return client;
+  if (!connecting) {
+    client = createClient({
+      url: REDIS_URL,
+      socket: { connectTimeout: 5000, reconnectStrategy: false },
+    });
+    client.on('error', () => {});
+    connecting = client.connect().finally(() => { connecting = null; });
+  }
+  await connecting;
+  return client;
 }
 
 const okRoom = s => typeof s === 'string' && /^[a-z0-9-]{1,32}$/.test(s);
 
 module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
-  if (!URL_ || !TOKEN) return res.status(503).json({ error: 'no-storage' });
+  if (!REDIS_URL) return res.status(503).json({ error: 'no-storage' });
 
   try {
+    const r = await getClient();
+
     if (req.method === 'GET') {
       const room = String(req.query.room || '');
       const since = parseInt(req.query.since, 10) || 0;
       if (!okRoom(room)) return res.status(400).json({ error: 'bad-room' });
-      const [raw] = await redis([['LRANGE', 'm:' + room, -100, -1]]);
-      const msgs = (raw || []).map(s => { try { return JSON.parse(s); } catch { return null; } })
+      const raw = await r.lRange('m:' + room, -100, -1);
+      const msgs = raw.map(s => { try { return JSON.parse(s); } catch { return null; } })
         .filter(m => m && m.id > since);
       return res.status(200).json({ msgs });
     }
@@ -42,14 +52,14 @@ module.exports = async (req, res) => {
       const cid = String(b.cid || '').replace(/[^a-z0-9]/gi, '').slice(0, 24);
       if (!okRoom(room) || !morse || !cid) return res.status(400).json({ error: 'bad-request' });
 
-      const [id] = await redis([['INCR', 's:' + room]]);
+      const id = await r.incr('s:' + room);
       const msg = { id, cid, name, morse, t: Date.now() };
-      await redis([
-        ['RPUSH', 'm:' + room, JSON.stringify(msg)],
-        ['LTRIM', 'm:' + room, -KEEP, -1],
-        ['EXPIRE', 'm:' + room, TTL],
-        ['EXPIRE', 's:' + room, TTL],
-      ]);
+      await r.multi()
+        .rPush('m:' + room, JSON.stringify(msg))
+        .lTrim('m:' + room, -KEEP, -1)
+        .expire('m:' + room, TTL)
+        .expire('s:' + room, TTL)
+        .exec();
       return res.status(200).json({ ok: true, id });
     }
 
