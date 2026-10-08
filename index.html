@@ -496,7 +496,7 @@ button:disabled {
     <div class="header-right">
       <button class="chip" id="roomBtn" title="초대 링크 복사"></button>
       <span class="dot" id="statusDot"></span>
-      <button class="chip" id="settingsBtn" title="설정">⚙ 설정</button>
+      <button class="chip" id="settingsBtn" title="설정">설정</button>
     </div>
   </header>
 
@@ -799,7 +799,7 @@ async function copyLink(btn) {
   }
   const target = btn && btn.tagName ? btn : roomBtn;
   const original = target.textContent;
-  target.textContent = '복사됨 ✓';
+  target.textContent = '복사됨';
   setTimeout(() => target.textContent = original, 1200);
 }
 roomBtn.onclick = e => copyLink(e.currentTarget);
@@ -1269,7 +1269,7 @@ function buildMessage(msg) {
     const head = makeEl('div', 'meta');
     if (msg.admin) head.append(makeEl('span', 'badge-admin', '관리자'));
     head.append(document.createTextNode(meta.join(' · ')));
-    if (msg.failed) head.append(makeEl('span', 'error', (meta.length ? ' · ' : '') + '⚠ 통신 오류'));
+    if (msg.failed) head.append(makeEl('span', 'error', (meta.length ? ' · ' : '') + '통신 오류'));
     wrap.append(head);
   }
 
@@ -1321,7 +1321,7 @@ async function deleteMessage(msg) {
     }
     showCmdResult(res.status === 403 ? '내 메시지만 삭제할 수 있어요.' : `삭제 실패 (${data.error || res.status})`, true);
   } catch (e) {
-    showCmdResult('⚠ 통신 오류', true);
+    showCmdResult('통신 오류', true);
   }
 }
 
@@ -1416,6 +1416,9 @@ const BLOCK_PREFIX = {
 function startBlock(seconds, reason) {
   blockedUntil = Date.now() + Math.max(1, seconds) * 1000;
   blockReason = reason;
+
+  // 새로고침해도 유지 (차단은 해제될 수 있어서 저장하지 않고, 보낼 때 서버가 다시 알려줌)
+  store.set('mc-block', reason === 'ban' ? '' : JSON.stringify({ until: blockedUntil, reason }));
   clearInterval(blockTimer);
   tickBlock();
   blockTimer = setInterval(tickBlock, 250);
@@ -1431,6 +1434,7 @@ function tickBlock() {
   const left = Math.ceil((blockedUntil - Date.now()) / 1000);
   if (left <= 0) {
     clearInterval(blockTimer);
+    store.set('mc-block', '');
     blockMsg.textContent = '';
     renderComposer();
     return;
@@ -1462,7 +1466,7 @@ async function runAdminCommand(text) {
     showCmdResult(data.msg || (res.ok ? '완료' : `명령 실패 (${data.error || res.status})`), !res.ok);
     if (res.ok) poll();
   } catch (e) {
-    showCmdResult('⚠ 통신 오류', true);
+    showCmdResult('통신 오류', true);
   }
 }
 
@@ -1498,10 +1502,12 @@ async function sendMessage() {
       return;
     }
     if (!res.ok) {
-      if (data.error === 'banned') {
-        startBlock(Infinity, 'ban');
-      } else if (['rate', 'full', 'timeout'].includes(data.error)) {
-        startBlock(data.retryAfter || +res.headers.get('Retry-After') || 60, data.error);
+      const banned = data.error === 'banned';
+      if (banned || ['rate', 'full', 'timeout'].includes(data.error)) {
+        startBlock(banned ? Infinity : (data.retryAfter || +res.headers.get('Retry-After') || 60), banned ? 'ban' : data.error);
+        messages.delete(msg.cid);   // 막힌 메시지는 목록에서 바로 지움
+        renderFeed();
+        return;
       }
       throw new Error('send failed');
     }
@@ -1522,6 +1528,11 @@ textInput.addEventListener('keydown', e => {
 
 
 // 시작
+try {
+  const savedBlock = JSON.parse(store.get('mc-block', 'null'));
+  if (savedBlock && savedBlock.until > Date.now()) startBlock((savedBlock.until - Date.now()) / 1000, savedBlock.reason);
+} catch (e) {}
+
 if (location.protocol === 'file:') setConnection('local');
 setInterval(() => { if (!document.hidden) poll(); }, 1500);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
