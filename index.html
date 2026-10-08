@@ -5,418 +5,1443 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#fafaf9">
 <title>Morse</title>
-<style>
-:root{--bg:#fafaf9;--fg:#171717;--mute:#8a8a85;--line:#e7e5e0;--card:#fff;--acc:#171717;--accfg:#fff;--bad:#e5484d;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-/* 테마: 시스템(속성 없음) / light / dark / terminal / sepia */
-@media (prefers-color-scheme:dark){:root:not([data-theme]){--bg:#101010;--fg:#f1f1ee;--mute:#7d7d78;--line:#262624;--card:#181817;--acc:#f1f1ee;--accfg:#101010}}
-:root[data-theme="dark"]{--bg:#101010;--fg:#f1f1ee;--mute:#7d7d78;--line:#262624;--card:#181817;--acc:#f1f1ee;--accfg:#101010}
-:root[data-theme="terminal"]{--bg:#070b07;--fg:#b8f2b8;--mute:#4f8a4f;--line:#173017;--card:#0c150c;--acc:#3fb950;--accfg:#04120a}
-:root[data-theme="sepia"]{--bg:#f4ecd8;--fg:#3b2f20;--mute:#8c7b62;--line:#e0d4b8;--card:#fbf5e6;--acc:#3b2f20;--accfg:#fbf5e6}
-/* 강조 색 (테마 뒤에 있어야 덮어씀) */
-:root[data-accent="blue"]{--acc:#2563eb;--accfg:#fff}
-:root[data-accent="green"]{--acc:#16a34a;--accfg:#fff}
-:root[data-accent="amber"]{--acc:#d97706;--accfg:#fff}
-:root[data-accent="rose"]{--acc:#e11d48;--accfg:#fff}
-:root[data-accent="purple"]{--acc:#7c3aed;--accfg:#fff}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;margin:0}
-body{background:var(--bg);color:var(--fg);font:15px/1.5 -apple-system,"Pretendard","Noto Sans KR",system-ui,sans-serif;display:flex;justify-content:center}
-.app{width:100%;max-width:560px;height:100%;display:flex;flex-direction:column;padding:0 20px}
-header{display:flex;justify-content:space-between;align-items:center;padding:18px 0 10px;gap:8px}
-h1{font-size:15px;font-weight:600;letter-spacing:.14em;margin:0;text-transform:uppercase}
-.hr{display:flex;align-items:center;gap:6px}
-.dot{width:7px;height:7px;border-radius:50%;background:var(--mute)}
-.dot.on{background:#3fb950}.dot.off{background:var(--bad)}
-.chip{padding:5px 10px;font-size:13px;border-radius:999px;color:var(--mute)}
-#note{display:none;font-size:12px;color:var(--bad);padding:0 0 8px}
-#feed{flex:1;overflow-y:auto;padding:8px 0;display:flex;flex-direction:column;gap:14px;overscroll-behavior:contain;font-size:calc(15px*var(--z,1))}
-.empty{margin:auto;color:var(--mute);text-align:center;font-size:14px}
-.msg{max-width:88%;align-self:flex-start}
-.msg.mine{align-self:flex-end;text-align:right}
-.who{font-size:.8em;color:var(--mute);margin-bottom:4px}
-.who .bad{color:var(--bad)}
-.who .adm{display:inline-block;background:var(--bad);color:#fff;font-size:.85em;line-height:1.5;padding:0 6px;border-radius:4px;margin-right:5px;letter-spacing:0}
-.msg.admin .bub{border-color:var(--bad)}
-.bub{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 14px;cursor:pointer;text-align:left}
-.mine .bub{background:var(--acc);color:var(--accfg);border-color:var(--acc)}
-.msg.pend .bub{opacity:.55}
-.bub:active{opacity:.8}
-.mc{font:1.07em/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em;word-break:break-all}
-.tx{font-size:.87em;opacity:.6;margin-top:2px;word-break:break-word}
-#feed[data-disp="text"] .tx{opacity:1;font-size:1em;margin:0}
-.composer{padding:10px 0 16px;border-top:1px solid var(--line)}
-.prev{min-height:44px;margin-bottom:6px}
-.prev .tx{color:var(--mute);opacity:1;min-height:20px;font-size:13px;margin-top:2px}
-.warn{font-size:12px;color:var(--bad);min-height:0;margin-bottom:6px}
-.warn:empty{display:none}
-.row{display:flex;gap:8px}
-.row.noinp #send{flex:1}
-input{flex:1;min-width:0;background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font:inherit;outline:none}
-input:focus{border-color:var(--mute)}
-button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:12px;padding:12px 14px;cursor:pointer}
-button.pri{background:var(--acc);color:var(--accfg);border-color:var(--acc)}
-button:disabled{opacity:.35;cursor:default}
-.key{margin-top:8px;width:100%;padding:22px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none;color:var(--mute);letter-spacing:.06em;font-size:14px}
-.key.down{background:var(--acc);color:var(--accfg)}
-.hint{margin-top:8px;font-size:12px;color:var(--mute);text-align:center}
 
-/* 설정 시트 */
-#sheet{position:fixed;inset:0;display:none;background:rgba(0,0,0,.45);z-index:10;align-items:flex-end;justify-content:center}
-#sheet.open{display:flex}
-.panel{width:100%;max-width:560px;max-height:88%;overflow-y:auto;background:var(--bg);color:var(--fg);border-radius:20px 20px 0 0;padding:6px 20px calc(24px + env(safe-area-inset-bottom,0px));border:1px solid var(--line);border-bottom:0}
-.ph{position:sticky;top:0;background:var(--bg);display:flex;justify-content:space-between;align-items:center;padding:14px 0 8px;z-index:1}
-.ph b{font-size:16px}
-.ph button{padding:6px 12px;font-size:14px}
-.sh{margin:18px 0 2px;font-size:12px;letter-spacing:.1em;color:var(--mute);text-transform:uppercase}
-.it{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);font-size:14px}
-.it.col{flex-direction:column;align-items:stretch;gap:8px}
-.it .top{display:flex;justify-content:space-between;color:var(--fg)}
-.it .top span:last-child{color:var(--mute)}
-.it input[type=text]{flex:1;padding:8px 10px;border-radius:10px;font-size:14px;text-align:right}
-.it input[type=range]{padding:0;border:0;width:100%;accent-color:var(--acc);background:none}
-.it button.s{padding:8px 12px;font-size:13px;flex:none}
-.sw{width:44px;height:26px;border-radius:999px;padding:0;position:relative;background:var(--line);border:1px solid var(--line);flex:none}
-.sw::after{content:'';position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:var(--mute);transition:left .15s}
-.sw.on{background:var(--acc);border-color:var(--acc)}
-.sw.on::after{left:20px;background:var(--accfg)}
-.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card)}
-.seg button{flex:1;border:0;border-radius:0;padding:8px 10px;font-size:13px;background:transparent;white-space:nowrap}
-.seg button+button{border-left:1px solid var(--line)}
-.seg button.on{background:var(--acc);color:var(--accfg)}
-.sws{display:flex;gap:10px;flex-wrap:wrap}
-.swc{width:34px;height:34px;border-radius:50%;padding:0;border:2px solid var(--line)}
-.swc.on{outline:2px solid var(--fg);outline-offset:2px}
-.rst{margin-top:20px;width:100%;color:var(--bad)}
+<style>
+/* -- 기본 색상 */
+:root {
+  --bg: #fafaf9;
+  --fg: #171717;
+  --mute: #8a8a85;
+  --line: #e7e5e0;
+  --card: #fff;
+  --acc: #171717;
+  --accfg: #fff;
+  --bad: #e5484d;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* -- 테마: 시스템(속성 없음) / light / dark / terminal / sepia */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bg: #101010; --fg: #f1f1ee; --mute: #7d7d78;
+    --line: #262624; --card: #181817; --acc: #f1f1ee; --accfg: #101010;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101010; --fg: #f1f1ee; --mute: #7d7d78;
+  --line: #262624; --card: #181817; --acc: #f1f1ee; --accfg: #101010;
+}
+:root[data-theme="terminal"] {
+  --bg: #070b07; --fg: #b8f2b8; --mute: #4f8a4f;
+  --line: #173017; --card: #0c150c; --acc: #3fb950; --accfg: #04120a;
+}
+:root[data-theme="sepia"] {
+  --bg: #f4ecd8; --fg: #3b2f20; --mute: #8c7b62;
+  --line: #e0d4b8; --card: #fbf5e6; --acc: #3b2f20; --accfg: #fbf5e6;
+}
+
+/* -- 강조 색 (테마보다 뒤에 있어야 덮어씀) */
+:root[data-accent="blue"]   { --acc: #2563eb; --accfg: #fff; }
+:root[data-accent="green"]  { --acc: #16a34a; --accfg: #fff; }
+:root[data-accent="amber"]  { --acc: #d97706; --accfg: #fff; }
+:root[data-accent="rose"]   { --acc: #e11d48; --accfg: #fff; }
+:root[data-accent="purple"] { --acc: #7c3aed; --accfg: #fff; }
+
+/* -- 레이아웃 */
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+html, body {
+  height: 100%;
+  margin: 0;
+}
+body {
+  display: flex;
+  justify-content: center;
+  background: var(--bg);
+  color: var(--fg);
+  font: 15px/1.5 -apple-system, "Pretendard", "Noto Sans KR", system-ui, sans-serif;
+}
+.app {
+  width: 100%;
+  max-width: 560px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0 20px;
+}
+
+/* -- 헤더 */
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 0 10px;
+}
+h1 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--mute);
+}
+.dot.on  { background: #3fb950; }
+.dot.off { background: var(--bad); }
+.chip {
+  padding: 5px 10px;
+  font-size: 13px;
+  border-radius: 999px;
+  color: var(--mute);
+}
+#notice {
+  display: none;
+  padding: 0 0 8px;
+  font-size: 12px;
+  color: var(--bad);
+}
+
+/* -- 메시지 목록 */
+#feed {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 8px 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  font-size: calc(15px * var(--z, 1));
+}
+.empty {
+  margin: auto;
+  color: var(--mute);
+  text-align: center;
+  font-size: 14px;
+}
+.msg {
+  max-width: 88%;
+  align-self: flex-start;
+}
+.msg.mine {
+  align-self: flex-end;
+  text-align: right;
+}
+.meta {
+  margin-bottom: 4px;
+  font-size: .8em;
+  color: var(--mute);
+}
+.meta .error {
+  color: var(--bad);
+}
+.meta .badge-admin {
+  display: inline-block;
+  margin-right: 5px;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--bad);
+  color: #fff;
+  font-size: .85em;
+  line-height: 1.5;
+  letter-spacing: 0;
+}
+.bubble {
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  text-align: left;
+  cursor: pointer;
+}
+.bubble:active {
+  opacity: .8;
+}
+.mine .bubble {
+  background: var(--acc);
+  color: var(--accfg);
+  border-color: var(--acc);
+}
+.msg.admin .bubble {
+  border-color: var(--bad);
+}
+.msg.pending .bubble {
+  opacity: .55;
+}
+.morse {
+  font: 1.07em/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .12em;
+  word-break: break-all;
+}
+.text {
+  margin-top: 2px;
+  font-size: .87em;
+  opacity: .6;
+  word-break: break-word;
+}
+#feed[data-display="text"] .text {
+  margin: 0;
+  font-size: 1em;
+  opacity: 1;
+}
+
+/* -- 입력 영역 */
+.composer {
+  padding: 10px 0 16px;
+  border-top: 1px solid var(--line);
+}
+.preview {
+  min-height: 44px;
+  margin-bottom: 6px;
+}
+.preview .text {
+  min-height: 20px;
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--mute);
+  opacity: 1;
+}
+.warn {
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--bad);
+}
+.warn:empty {
+  display: none;
+}
+.row {
+  display: flex;
+  gap: 8px;
+}
+.row.no-input #sendBtn {
+  flex: 1;
+}
+.lang-btn {
+  min-width: 46px;
+  padding: 12px 10px;
+  font-weight: 600;
+}
+.hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--mute);
+  text-align: center;
+}
+
+/* -- 폼 요소 */
+input {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--fg);
+  font: inherit;
+  outline: none;
+}
+input:focus {
+  border-color: var(--mute);
+}
+button {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+button.primary {
+  background: var(--acc);
+  color: var(--accfg);
+  border-color: var(--acc);
+}
+button:disabled {
+  opacity: .35;
+  cursor: default;
+}
+
+/* -- 탭 키 */
+.tap-key {
+  width: 100%;
+  margin-top: 8px;
+  padding: 22px;
+  color: var(--mute);
+  font-size: 14px;
+  letter-spacing: .06em;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
+}
+.tap-key.down {
+  background: var(--acc);
+  color: var(--accfg);
+}
+
+/* -- 설정 시트 */
+#sheet {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(0, 0, 0, .45);
+  z-index: 10;
+}
+#sheet.open {
+  display: flex;
+}
+.panel {
+  width: 100%;
+  max-width: 560px;
+  max-height: 88%;
+  overflow-y: auto;
+  padding: 6px 20px calc(24px + env(safe-area-inset-bottom, 0px));
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-radius: 20px 20px 0 0;
+  background: var(--bg);
+  color: var(--fg);
+}
+.panel-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 0 8px;
+  background: var(--bg);
+}
+.panel-head b {
+  font-size: 16px;
+}
+.panel-head button {
+  padding: 6px 12px;
+  font-size: 14px;
+}
+.section-title {
+  margin: 18px 0 2px;
+  font-size: 12px;
+  letter-spacing: .1em;
+  color: var(--mute);
+  text-transform: uppercase;
+}
+
+/* -- 설정 항목 */
+.item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+.item.col {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+.item-top {
+  display: flex;
+  justify-content: space-between;
+  color: var(--fg);
+}
+.item-top span:last-child {
+  color: var(--mute);
+}
+.item input[type=text] {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 14px;
+  text-align: right;
+}
+.item input[type=range] {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  accent-color: var(--acc);
+}
+.item button.small {
+  flex: none;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+.reset {
+  width: 100%;
+  margin-top: 20px;
+  color: var(--bad);
+}
+
+/* -- 스위치 */
+.switch {
+  position: relative;
+  flex: none;
+  width: 44px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--line);
+}
+.switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--mute);
+  transition: left .15s;
+}
+.switch.on {
+  background: var(--acc);
+  border-color: var(--acc);
+}
+.switch.on::after {
+  left: 20px;
+  background: var(--accfg);
+}
+
+/* -- 선택 버튼 · 색상 */
+.segmented {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+}
+.segmented button {
+  flex: 1;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.segmented button + button {
+  border-left: 1px solid var(--line);
+}
+.segmented button.on {
+  background: var(--acc);
+  color: var(--accfg);
+}
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.swatch {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 2px solid var(--line);
+  border-radius: 50%;
+}
+.swatch.on {
+  outline: 2px solid var(--fg);
+  outline-offset: 2px;
+}
 </style>
 </head>
+
 <body>
+<!-- -- 앱 화면 -->
 <div class="app">
   <header>
     <h1>Morse</h1>
-    <div class="hr">
-      <button class="chip" id="rm" title="초대 링크 복사"></button>
-      <span class="dot" id="st"></span>
-      <button class="chip" id="gear" title="설정">⚙ 설정</button>
+    <div class="header-right">
+      <button class="chip" id="roomBtn" title="초대 링크 복사"></button>
+      <span class="dot" id="statusDot"></span>
+      <button class="chip" id="settingsBtn" title="설정">⚙ 설정</button>
     </div>
   </header>
-  <div id="note"></div>
+
+  <div id="notice"></div>
   <div id="feed"></div>
+
   <div class="composer">
-    <div class="prev" id="prevbox"><div class="mc" id="pm"></div><div class="tx" id="pt"></div></div>
-    <div class="warn" id="pw"></div>
-    <div class="warn" id="blk"></div>
-    <div class="warn" id="cres"></div>
-    <div class="row" id="row">
-      <input id="inp" placeholder="메시지 입력 (영문·숫자)" autocomplete="off" autocapitalize="off" maxlength="120" enterkeyhint="send">
-      <button id="bs" title="한 글자 지우기">⌫</button>
-      <button id="clr" title="전체 지우기">✕</button>
-      <button id="send" class="pri" disabled>전송</button>
+    <div class="preview" id="previewBox">
+      <div class="morse" id="previewMorse"></div>
+      <div class="text" id="previewText"></div>
     </div>
-    <button class="key" id="key">탭 키 · 짧게 = · &nbsp; 길게 = −  (스페이스바)</button>
+    <div class="warn" id="charWarn"></div>
+    <div class="warn" id="blockMsg"></div>
+    <div class="warn" id="cmdResult"></div>
+
+    <div class="row" id="inputRow">
+      <button class="lang-btn" id="langBtn" title="한/영 전환"></button>
+      <input id="textInput" autocomplete="off" autocapitalize="off" maxlength="120" enterkeyhint="send">
+      <button id="backspaceBtn" title="한 글자 지우기">⌫</button>
+      <button id="clearBtn" title="전체 지우기">✕</button>
+      <button id="sendBtn" class="primary" disabled>전송</button>
+    </div>
+
+    <button class="tap-key" id="tapKey">탭 키 · 짧게 = · &nbsp; 길게 = −  (스페이스바)</button>
     <div class="hint" id="hint">메시지를 누르면 소리로 들을 수 있어요</div>
   </div>
 </div>
 
-<div id="sheet"><div class="panel"><div class="ph"><b>설정</b><button id="sx">닫기</button></div><div id="sbody"></div></div></div>
+<!-- -- 설정 시트 -->
+<div id="sheet">
+  <div class="panel">
+    <div class="panel-head">
+      <b>설정</b>
+      <button id="sheetClose">닫기</button>
+    </div>
+    <div id="sheetBody"></div>
+  </div>
+</div>
 
 <script>
-const T={A:'.-',B:'-...',C:'-.-.',D:'-..',E:'.',F:'..-.',G:'--.',H:'....',I:'..',J:'.---',K:'-.-',L:'.-..',M:'--',N:'-.',O:'---',P:'.--.',Q:'--.-',R:'.-.',S:'...',T:'-',U:'..-',V:'...-',W:'.--',X:'-..-',Y:'-.--',Z:'--..',
-0:'-----',1:'.----',2:'..---',3:'...--',4:'....-',5:'.....',6:'-....',7:'--...',8:'---..',9:'----.','.':'.-.-.-',',':'--..--','?':'..--..','!':'-.-.--','/':'-..-.','-':'-....-','@':'.--.-.',':':'---...'};
-const R=Object.fromEntries(Object.entries(T).map(([k,v])=>[v,k]));
-const enc=s=>s.toUpperCase().split(/\s+/).filter(Boolean).map(w=>[...w].map(c=>T[c]).filter(Boolean).join(' ')).filter(Boolean).join(' / ');
-const dec=m=>m.split(' / ').map(w=>w.split(' ').map(c=>c?(R[c]||'·'):'').join('')).join(' ');
-const $=id=>document.getElementById(id);
-const inp=$('inp'),pm=$('pm'),pt=$('pt'),pw=$('pw'),send=$('send'),feed=$('feed'),key=$('key');
+// -- 모스 부호 표
+const MORSE_EN = {
+  A: '.-',   B: '-...', C: '-.-.', D: '-..',  E: '.',    F: '..-.',
+  G: '--.',  H: '....', I: '..',   J: '.---', K: '-.-',  L: '.-..',
+  M: '--',   N: '-.',   O: '---',  P: '.--.', Q: '--.-', R: '.-.',
+  S: '...',  T: '-',    U: '..-',  V: '...-', W: '.--',  X: '-..-',
+  Y: '-.--', Z: '--..',
+};
 
-/* ---------- 설정 저장소 ---------- */
-const store={get(k,d){try{return localStorage.getItem(k)??d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
-const DEF={name:'',disp:'both',who:1,time:1,prev:'both',hint:1,size:'1',
- showInp:1,showKey:1,enter:1,space:1,
- dashMs:220,autoGap:1,letterMs:650,wordMs:1700,keySnd:1,
- wpm:15,auto:1,
- theme:'system',accent:'default'};
-let S={...DEF};
-try{Object.assign(S,JSON.parse(store.get('mc-set','{}')))}catch(e){}
-if(!S.name)S.name=store.get('mc-name','')||('OP-'+Math.floor(100+Math.random()*900));
-const save=()=>store.set('mc-set',JSON.stringify(S));
-save();
-let me=S.name;
-let adminKey=store.get('mc-key','');
-const U=()=>1200/S.wpm; // ms (15wpm = 80ms)
+const MORSE_KO = {
+  // 자음
+  'ㄱ': '.-..', 'ㄴ': '..-.', 'ㄷ': '-...', 'ㄹ': '...-', 'ㅁ': '--',   'ㅂ': '.--',  'ㅅ': '--.',
+  'ㅇ': '-.-',  'ㅈ': '.--.', 'ㅊ': '-.-.', 'ㅋ': '-..-', 'ㅌ': '--..', 'ㅍ': '---',  'ㅎ': '.---',
+  // 모음
+  'ㅏ': '.',    'ㅑ': '..',   'ㅓ': '-',    'ㅕ': '...',  'ㅗ': '.-',   'ㅛ': '-.',
+  'ㅜ': '....', 'ㅠ': '.-.',  'ㅡ': '-..',  'ㅣ': '..-',  'ㅐ': '--.-', 'ㅔ': '-.--',
+};
 
-const cleanRoom=s=>(s||'').toLowerCase().replace(/[^a-z0-9-]/g,'').slice(0,32);
-const room=cleanRoom(new URLSearchParams(location.search).get('r'))||'lobby';
-$('rm').textContent='#'+room;
-async function copyLink(btn){const u=location.origin+location.pathname+'?r='+room;
- try{await navigator.clipboard.writeText(u)}catch(e){prompt('링크를 복사하세요',u);return}
- const b=btn&&btn.tagName?btn:$('rm'),o=b.textContent;b.textContent='복사됨 ✓';setTimeout(()=>b.textContent=o,1200)}
-$('rm').onclick=e=>copyLink(e.currentTarget);
+// 영문·한글 공통 (숫자, 기호)
+const MORSE_COMMON = {
+  0: '-----', 1: '.----', 2: '..---', 3: '...--', 4: '....-',
+  5: '.....', 6: '-....', 7: '--...', 8: '---..', 9: '----.',
+  '.': '.-.-.-', ',': '--..--', '?': '..--..', '!': '-.-.--',
+  '/': '-..-.',  '-': '-....-', '@': '.--.-.', ':': '---...',
+};
 
-/* ---------- 적용 ---------- */
-function applyTheme(){
- const r=document.documentElement;
- S.theme==='system'?r.removeAttribute('data-theme'):r.setAttribute('data-theme',S.theme);
- S.accent==='default'?r.removeAttribute('data-accent'):r.setAttribute('data-accent',S.accent);
- r.style.setProperty('--z',S.size);
- const m=document.querySelector('meta[name=theme-color]');
- if(m)m.content=getComputedStyle(r).getPropertyValue('--bg').trim()||'#fafaf9'}
-matchMedia('(prefers-color-scheme:dark)').addEventListener?.('change',applyTheme);
-function apply(){
- applyTheme();me=S.name;
- inp.style.display=S.showInp?'':'none';
- $('row').classList.toggle('noinp',!S.showInp);
- key.style.display=S.showKey?'':'none';
- $('hint').style.display=S.hint?'':'none';
- feed.dataset.disp=S.disp;
- draw();render()}
+const invert = obj => Object.fromEntries(Object.entries(obj).map(([k, v]) => [v, k]));
 
-/* ---------- 설정 화면 ---------- */
-const SCHEMA=[
- {t:'표시',items:[
-  {k:'disp',type:'seg',label:'메시지 보기',opts:[['both','둘 다'],['text','텍스트만'],['morse','모스부호만']]},
-  {k:'prev',type:'seg',label:'입력 미리보기',opts:[['both','둘 다'],['text','텍스트'],['morse','모스'],['off','끄기']]},
-  {k:'who',type:'sw',label:'보낸 사람 이름 표시'},
-  {k:'time',type:'sw',label:'시간 표시'},
-  {k:'hint',type:'sw',label:'하단 안내 문구'},
-  {k:'size',type:'seg',label:'메시지 글자 크기',opts:[['.9','작게'],['1','보통'],['1.15','크게'],['1.3','아주 크게']]},
- ]},
- {t:'입력 방식',items:[
-  {k:'showInp',type:'sw',label:'텍스트 입력창'},
-  {k:'showKey',type:'sw',label:'탭 키 버튼'},
-  {k:'enter',type:'sw',label:'Enter로 전송'},
-  {k:'space',type:'sw',label:'스페이스바를 탭 키로 사용'},
- ]},
- {t:'탭 키',items:[
-  {k:'dashMs',type:'range',label:'길게 누름 기준 (이보다 짧으면 점)',min:100,max:500,step:10,unit:' ms'},
-  {k:'autoGap',type:'sw',label:'글자·단어 자동 띄우기'},
-  {k:'letterMs',type:'range',label:'글자 구분 대기 시간',min:300,max:1500,step:50,unit:' ms'},
-  {k:'wordMs',type:'range',label:'단어 구분 대기 시간',min:800,max:3500,step:100,unit:' ms'},
-  {k:'keySnd',type:'sw',label:'누르는 동안 소리'},
- ]},
- {t:'소리',items:[
-  {k:'wpm',type:'range',label:'재생 속도',min:5,max:30,step:1,unit:' WPM'},
-  {k:'auto',type:'sw',label:'새 메시지 자동 재생'},
- ]},
- {t:'테마',items:[
-  {k:'theme',type:'seg',label:'화면 모드',opts:[['system','시스템'],['light','라이트'],['dark','다크'],['terminal','터미널'],['sepia','세피아']]},
-  {k:'accent',type:'swatch',label:'강조 색',opts:[
-   ['default','기본','linear-gradient(135deg,#171717 50%,#f1f1ee 50%)'],['blue','파랑','#2563eb'],['green','초록','#16a34a'],['amber','주황','#d97706'],['rose','빨강','#e11d48'],['purple','보라','#7c3aed']]},
- ]},
+const CODE_TABLE = {
+  en: { ...MORSE_EN, ...MORSE_COMMON },
+  ko: { ...MORSE_KO, ...MORSE_COMMON },
+};
+const CHAR_TABLE = {
+  en: invert(CODE_TABLE.en),
+  ko: invert(CODE_TABLE.ko),
+};
+
+const LANG_INFO = {
+  en: { label: 'EN', placeholder: '메시지 입력 (영문·숫자)', allowed: '영문·숫자·.,?!/-@:' },
+  ko: { label: '한',  placeholder: '메시지 입력 (한글·숫자)', allowed: '한글·숫자·.,?!/-@:' },
+};
+
+
+// -- 한글 분해 · 조합
+const HANGUL_START = 0xAC00;
+const HANGUL_END = 0xD7A3;
+const INITIALS = [...'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ'];
+const VOWELS = [...'ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ'];
+const FINALS = ['', ...'ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄㅅㅆㅇㅈㅊㅋㅌㅍㅎ'];
+
+const BASE_CONSONANTS = [...'ㄱㄴㄷㄹㅁㅂㅅㅇㅈㅊㅋㅌㅍㅎ'];
+const BASE_VOWELS = [...'ㅏㅑㅓㅕㅗㅛㅜㅠㅡㅣㅐㅔ'];
+const isConsonant = ch => BASE_CONSONANTS.includes(ch);
+const isVowel = ch => BASE_VOWELS.includes(ch);
+
+// 모스 부호표에 없는 자모 → 기본 자모 조합
+const SPLIT = {
+  'ㄲ': 'ㄱㄱ', 'ㄸ': 'ㄷㄷ', 'ㅃ': 'ㅂㅂ', 'ㅆ': 'ㅅㅅ', 'ㅉ': 'ㅈㅈ',
+  'ㄳ': 'ㄱㅅ', 'ㄵ': 'ㄴㅈ', 'ㄶ': 'ㄴㅎ', 'ㄺ': 'ㄹㄱ', 'ㄻ': 'ㄹㅁ',
+  'ㄼ': 'ㄹㅂ', 'ㄽ': 'ㄹㅅ', 'ㄾ': 'ㄹㅌ', 'ㄿ': 'ㄹㅍ', 'ㅀ': 'ㄹㅎ', 'ㅄ': 'ㅂㅅ',
+  'ㅒ': 'ㅑㅣ', 'ㅖ': 'ㅕㅣ', 'ㅘ': 'ㅗㅏ', 'ㅙ': 'ㅗㅐ', 'ㅚ': 'ㅗㅣ',
+  'ㅝ': 'ㅜㅓ', 'ㅞ': 'ㅜㅔ', 'ㅟ': 'ㅜㅣ', 'ㅢ': 'ㅡㅣ',
+};
+const JOIN = invert(SPLIT);
+
+// "한" → ['ㅎ', 'ㅏ', 'ㄴ']
+function toJamo(text) {
+  const units = [];
+  for (const ch of text) {
+    const code = ch.codePointAt(0);
+    let parts = [ch];
+    if (code >= HANGUL_START && code <= HANGUL_END) {
+      const i = code - HANGUL_START;
+      parts = [INITIALS[Math.floor(i / 588)], VOWELS[Math.floor((i % 588) / 28)], FINALS[i % 28]];
+    }
+    for (const part of parts.filter(Boolean)) units.push(...(SPLIT[part] || part));
+  }
+  return units;
+}
+
+// ['ㅎ', 'ㅏ', 'ㄴ'] → "한"
+function assembleHangul(units) {
+  let out = '';
+  let i = 0;
+
+  while (i < units.length) {
+    let initial = units[i++];
+
+    // 자음이 아니면 그대로 출력
+    if (!isConsonant(initial)) { out += initial; continue; }
+
+    // 쌍자음 초성 (ㄱㄱ + 모음 → ㄲ)
+    const doubled = JOIN[initial + units[i]];
+    if (doubled && INITIALS.includes(doubled) && isVowel(units[i + 1])) {
+      initial = doubled;
+      i++;
+    }
+
+    // 모음이 안 따라오면 자음 단독
+    if (!isVowel(units[i])) { out += initial; continue; }
+
+    // 모음 (ㅗ + ㅏ → ㅘ)
+    let vowel = units[i++];
+    const joinedVowel = JOIN[vowel + units[i]];
+    if (joinedVowel && VOWELS.includes(joinedVowel)) {
+      vowel = joinedVowel;
+      i++;
+    }
+
+    // 받침: 뒤에 모음이 오면 다음 글자의 초성으로 넘김
+    let final = '';
+    const [c1, c2, c3, c4] = [units[i], units[i + 1], units[i + 2], units[i + 3]];
+    if (isConsonant(c1) && !isVowel(c2)) {
+      const pair = JOIN[c1 + c2];
+      const nextIsDoubledInitial = isConsonant(c2) && isConsonant(c3) && isVowel(c4) && INITIALS.includes(JOIN[c2 + c3]);
+      if (pair && FINALS.includes(pair) && !isVowel(c3) && !nextIsDoubledInitial) {
+        final = pair;
+        i += 2;
+      } else {
+        final = c1;
+        i += 1;
+      }
+    }
+
+    const index = (INITIALS.indexOf(initial) * 21 + VOWELS.indexOf(vowel)) * 28 + FINALS.indexOf(final);
+    out += String.fromCharCode(HANGUL_START + index);
+  }
+  return out;
+}
+
+
+// -- 인코딩 · 디코딩
+// 글자는 ' ', 단어는 ' / '로 구분
+const encode = (text, lang) =>
+  text.toUpperCase().split(/\s+/).filter(Boolean)
+    .map(word => (lang === 'ko' ? toJamo(word) : [...word])
+      .map(ch => CODE_TABLE[lang][ch])
+      .filter(Boolean)
+      .join(' '))
+    .filter(Boolean)
+    .join(' / ');
+
+function decode(morse, lang = 'en') {
+  const table = CHAR_TABLE[lang] || CHAR_TABLE.en;
+  return morse.split(' / ').map(word => {
+    const chars = word.split(' ').filter(Boolean).map(code => table[code] || '·');
+    return lang === 'ko' ? assembleHangul(chars) : chars.join('');
+  }).join(' ');
+}
+
+// 부호표에 없어서 제외될 글자 수
+function countUnsupported(text, lang) {
+  const chars = lang === 'ko' ? toJamo(text.toUpperCase()) : [...text.toUpperCase()];
+  return chars.filter(ch => ch.trim() && !CODE_TABLE[lang][ch]).length;
+}
+
+const sanitizeMorse = s => s.replace(/[^.\-\/ ]/g, '').replace(/[ /]+$/, '').trim().slice(0, 400);
+
+
+// -- 요소 · 공통 도구
+const byId = id => document.getElementById(id);
+const roomBtn = byId('roomBtn'), statusDot = byId('statusDot'), settingsBtn = byId('settingsBtn');
+const notice = byId('notice'), feed = byId('feed');
+const previewBox = byId('previewBox'), previewMorse = byId('previewMorse'), previewText = byId('previewText');
+const charWarn = byId('charWarn'), blockMsg = byId('blockMsg'), cmdResult = byId('cmdResult');
+const inputRow = byId('inputRow'), langBtn = byId('langBtn'), textInput = byId('textInput');
+const backspaceBtn = byId('backspaceBtn'), clearBtn = byId('clearBtn'), sendBtn = byId('sendBtn');
+const tapKey = byId('tapKey'), hint = byId('hint');
+const sheet = byId('sheet'), sheetBody = byId('sheetBody'), sheetClose = byId('sheetClose');
+
+const API_URL = '/api/messages';
+
+function makeEl(tag, className, text) {
+  const el = document.createElement(tag);
+  if (className) el.className = className;
+  if (text != null) el.textContent = text;
+  return el;
+}
+
+const postJson = body => fetch(API_URL, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(body),
+});
+
+const store = {
+  get(key, fallback) { try { return localStorage.getItem(key) ?? fallback; } catch (e) { return fallback; } },
+  set(key, value)    { try { localStorage.setItem(key, value); } catch (e) {} },
+};
+
+
+// -- 설정
+const DEFAULT_SETTINGS = {
+  name: '',
+  lang: 'en',
+  // 표시
+  display: 'both', preview: 'both', showName: 1, showTime: 1, showHint: 1, textScale: '1',
+  // 입력 방식
+  showInput: 1, showTapKey: 1, enterToSend: 1, spaceToTap: 1,
+  // 탭 키
+  dashMs: 220, autoGap: 1, letterMs: 650, wordMs: 1700, keySound: 1,
+  // 소리
+  wpm: 15, autoPlay: 1,
+  // 테마
+  theme: 'system', accent: 'default',
+};
+
+// 이전 버전에서 저장된 설정 이름 → 현재 이름
+const LEGACY_KEYS = {
+  disp: 'display', prev: 'preview', who: 'showName', time: 'showTime', hint: 'showHint',
+  size: 'textScale', showInp: 'showInput', showKey: 'showTapKey', enter: 'enterToSend',
+  space: 'spaceToTap', keySnd: 'keySound', auto: 'autoPlay',
+};
+
+let settings = { ...DEFAULT_SETTINGS };
+try {
+  const saved = JSON.parse(store.get('mc-set', '{}'));
+  for (const [key, value] of Object.entries(saved)) settings[LEGACY_KEYS[key] || key] = value;
+} catch (e) {}
+
+if (!CODE_TABLE[settings.lang]) settings.lang = 'en';
+if (!settings.name) settings.name = store.get('mc-name', '') || 'OP-' + Math.floor(100 + Math.random() * 900);
+
+let adminKey = store.get('mc-key', '');
+const saveSettings = () => store.set('mc-set', JSON.stringify(settings));
+const dotMs = () => 1200 / settings.wpm; // 15 WPM = 80ms
+saveSettings();
+
+function setSetting(key, value) {
+  settings[key] = value;
+  if (key === 'lang') clearDraft();
+
+  // 입력창과 탭 키가 둘 다 꺼지지 않게 보정
+  if (!settings.showInput && !settings.showTapKey) {
+    settings[key === 'showInput' ? 'showTapKey' : 'showInput'] = 1;
+    saveSettings();
+    applySettings();
+    buildSheet();
+    return;
+  }
+
+  saveSettings();
+  applySettings();
+  if (key === 'autoGap') buildSheet();
+}
+
+
+// -- 방 · 초대 링크
+const cleanRoom = s => (s || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 32);
+const room = cleanRoom(new URLSearchParams(location.search).get('r')) || 'lobby';
+roomBtn.textContent = '#' + room;
+
+async function copyLink(btn) {
+  const url = location.origin + location.pathname + '?r=' + room;
+  try {
+    await navigator.clipboard.writeText(url);
+  } catch (e) {
+    prompt('링크를 복사하세요', url);
+    return;
+  }
+  const target = btn && btn.tagName ? btn : roomBtn;
+  const original = target.textContent;
+  target.textContent = '복사됨 ✓';
+  setTimeout(() => target.textContent = original, 1200);
+}
+roomBtn.onclick = e => copyLink(e.currentTarget);
+
+
+// -- 설정 적용
+function applyTheme() {
+  const root = document.documentElement;
+  settings.theme === 'system' ? root.removeAttribute('data-theme') : root.setAttribute('data-theme', settings.theme);
+  settings.accent === 'default' ? root.removeAttribute('data-accent') : root.setAttribute('data-accent', settings.accent);
+  root.style.setProperty('--z', settings.textScale);
+
+  const meta = document.querySelector('meta[name=theme-color]');
+  if (meta) meta.content = getComputedStyle(root).getPropertyValue('--bg').trim() || '#fafaf9';
+}
+matchMedia('(prefers-color-scheme:dark)').addEventListener?.('change', applyTheme);
+
+function applySettings() {
+  applyTheme();
+
+  const lang = LANG_INFO[settings.lang];
+  langBtn.textContent = lang.label;
+  textInput.placeholder = lang.placeholder;
+
+  textInput.style.display = settings.showInput ? '' : 'none';
+  inputRow.classList.toggle('no-input', !settings.showInput);
+  tapKey.style.display = settings.showTapKey ? '' : 'none';
+  hint.style.display = settings.showHint ? '' : 'none';
+  feed.dataset.display = settings.display;
+
+  renderFeed();
+  renderComposer();
+}
+
+
+// -- 설정 화면 구성
+const SETTINGS_SCHEMA = [
+  { title: '표시', items: [
+    { key: 'display', type: 'segmented', label: '메시지 보기',
+      options: [['both', '둘 다'], ['text', '텍스트만'], ['morse', '모스부호만']] },
+    { key: 'preview', type: 'segmented', label: '입력 미리보기',
+      options: [['both', '둘 다'], ['text', '텍스트'], ['morse', '모스'], ['off', '끄기']] },
+    { key: 'showName', type: 'switch', label: '보낸 사람 이름 표시' },
+    { key: 'showTime', type: 'switch', label: '시간 표시' },
+    { key: 'showHint', type: 'switch', label: '하단 안내 문구' },
+    { key: 'textScale', type: 'segmented', label: '메시지 글자 크기',
+      options: [['.9', '작게'], ['1', '보통'], ['1.15', '크게'], ['1.3', '아주 크게']] },
+  ]},
+  { title: '입력 방식', items: [
+    { key: 'lang', type: 'segmented', label: '입력 언어',
+      options: [['en', '영문'], ['ko', '한글']] },
+    { key: 'showInput', type: 'switch', label: '텍스트 입력창' },
+    { key: 'showTapKey', type: 'switch', label: '탭 키 버튼' },
+    { key: 'enterToSend', type: 'switch', label: 'Enter로 전송' },
+    { key: 'spaceToTap', type: 'switch', label: '스페이스바를 탭 키로 사용' },
+  ]},
+  { title: '탭 키', items: [
+    { key: 'dashMs', type: 'range', label: '길게 누름 기준 (이보다 짧으면 점)', min: 100, max: 500, step: 10, unit: ' ms' },
+    { key: 'autoGap', type: 'switch', label: '글자·단어 자동 띄우기' },
+    { key: 'letterMs', type: 'range', label: '글자 구분 대기 시간', min: 300, max: 1500, step: 50, unit: ' ms' },
+    { key: 'wordMs', type: 'range', label: '단어 구분 대기 시간', min: 800, max: 3500, step: 100, unit: ' ms' },
+    { key: 'keySound', type: 'switch', label: '누르는 동안 소리' },
+  ]},
+  { title: '소리', items: [
+    { key: 'wpm', type: 'range', label: '재생 속도', min: 5, max: 30, step: 1, unit: ' WPM' },
+    { key: 'autoPlay', type: 'switch', label: '새 메시지 자동 재생' },
+  ]},
+  { title: '테마', items: [
+    { key: 'theme', type: 'segmented', label: '화면 모드',
+      options: [['system', '시스템'], ['light', '라이트'], ['dark', '다크'], ['terminal', '터미널'], ['sepia', '세피아']] },
+    { key: 'accent', type: 'swatch', label: '강조 색',
+      options: [
+        ['default', '기본', 'linear-gradient(135deg,#171717 50%,#f1f1ee 50%)'],
+        ['blue', '파랑', '#2563eb'], ['green', '초록', '#16a34a'], ['amber', '주황', '#d97706'],
+        ['rose', '빨강', '#e11d48'], ['purple', '보라', '#7c3aed'],
+      ] },
+  ]},
 ];
-const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
-function set(k,v){
- S[k]=v;
- if(!S.showInp&&!S.showKey){S[k==='showInp'?'showKey':'showInp']=1;save();apply();build();return}
- save();apply();
- if(k==='autoGap')build()}
-function row(it){
- const d=el('div','it'),k=it.k;
- if(it.type==='sw'){
-  d.append(el('span','',it.label));
-  const b=el('button','sw'+(S[k]?' on':''));b.setAttribute('role','switch');b.setAttribute('aria-checked',!!S[k]);
-  b.onclick=()=>set(k,S[k]?0:1);d.append(b)}
- else if(it.type==='seg'){
-  const g=el('div','seg');
-  if(it.opts.length>3){d.classList.add('col');d.append(el('span','',it.label),g)}else{d.append(el('span','',it.label),g)}
-  for(const[o,n]of it.opts){const b=el('button',String(S[k])===o?'on':'',n);
-   b.onclick=()=>{set(k,o);[...g.children].forEach(x=>x.classList.toggle('on',x===b))};g.append(b)}}
- else if(it.type==='range'){
-  d.classList.add('col');
-  const top=el('div','top'),v=el('span','',S[k]+it.unit);top.append(el('span','',it.label),v);
-  const r=el('input');r.type='range';r.min=it.min;r.max=it.max;r.step=it.step;r.value=S[k];
-  r.oninput=()=>{v.textContent=r.value+it.unit;set(k,+r.value)};d.append(top,r);
-  if((k==='letterMs'||k==='wordMs')&&!S.autoGap){d.style.opacity='.4';r.disabled=true}}
- else if(it.type==='swatch'){
-  d.classList.add('col');d.append(el('span','',it.label));
-  const g=el('div','sws');
-  for(const[o,n,c]of it.opts){const b=el('button','swc'+(S[k]===o?' on':''));b.style.background=c;b.title=n;b.setAttribute('aria-label',n);
-   b.onclick=()=>{set(k,o);[...g.children].forEach(x=>x.classList.toggle('on',x===b))};g.append(b)}
-  d.append(g)}
- return d}
-function build(){
- const body=$('sbody'),sc=document.querySelector('.panel').scrollTop;body.textContent='';
- body.append(el('div','sh','계정 · 방'));
- let d=el('div','it');d.append(el('span','','이름'));
- const ni=el('input');ni.type='text';ni.maxLength=12;ni.value=S.name;ni.autocomplete='off';
- ni.onchange=()=>{const v=ni.value.trim().slice(0,12);if(v){S.name=v;save();apply()}else ni.value=S.name};d.append(ni);body.append(d);
- d=el('div','it');d.append(el('span','','방'));
- const ri=el('input');ri.type='text';ri.maxLength=32;ri.value=room;ri.placeholder='영문·숫자·-';ri.autocomplete='off';ri.style.textAlign='right';
- const go=el('button','s','이동');
- const doGo=()=>{const r=cleanRoom(ri.value);if(r&&r!==room)location.search='?r='+r};
- go.onclick=doGo;ri.onkeydown=e=>{if(e.key==='Enter')doGo()};d.append(ri,go);body.append(d);
- d=el('div','it');d.append(el('span','','초대 링크'));
- const cp=el('button','s','복사');cp.onclick=()=>copyLink(cp);d.append(cp);body.append(d);
- body.append(el('div','sh','관리자'));
- d=el('div','it');
- if(adminKey){
-  d.append(el('span','','관리자 모드 켜짐'));
-  const lo=el('button','s','로그아웃');lo.onclick=()=>{adminKey='';store.set('mc-key','');build()};d.append(lo);body.append(d)}
- else{
-  const ki=el('input');ki.type='password';ki.placeholder='관리자 비밀번호';ki.autocomplete='off';ki.style.textAlign='right';
-  const lb=el('button','s','로그인'),ms=el('div','warn');
-  const doLogin=async()=>{const k=ki.value;if(!k)return;lb.disabled=true;ms.textContent='';
-   try{
-    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'auth',key:k})});
-    const j=await r.json().catch(()=>({}));
-    if(r.ok){adminKey=k;store.set('mc-key',k);build();return}
-    ms.textContent=r.status===401?'비밀번호가 달라요.':r.status===429?'실패가 너무 많아요. '+(j.retryAfter||600)+'초 뒤에 다시 시도하세요.':r.status===501?'서버에 ADMIN_PASSWORD가 설정되지 않았어요.':'확인하지 못했어요. 잠시 후 다시 시도하세요.'
-   }catch(e){ms.textContent='통신 오류'}
-   lb.disabled=false};
-  lb.onclick=doLogin;ki.onkeydown=e=>{if(e.key==='Enter')doLogin()};
-  d.append(ki,lb);body.append(d,ms)}
- for(const sec of SCHEMA){body.append(el('div','sh',sec.t));for(const it of sec.items)body.append(row(it))}
- const rs=el('button','rst','설정 초기화');
- rs.onclick=()=>{if(confirm('모든 설정을 기본값으로 되돌릴까요? (이름은 유지)')){S={...DEF,name:S.name};save();apply();build()}};
- body.append(rs);
- document.querySelector('.panel').scrollTop=sc}
-const sheet=$('sheet');
-const openS=()=>{build();sheet.classList.add('open')},closeS=()=>sheet.classList.remove('open');
-$('gear').onclick=openS;$('sx').onclick=closeS;
-sheet.addEventListener('click',e=>{if(e.target===sheet)closeS()});
-addEventListener('keydown',e=>{if(e.key==='Escape')closeS()});
 
-/* ---------- 입력 ---------- */
-let morse='';
-function render(){
- const p=S.prev;
- $('prevbox').style.display=p==='off'?'none':'';
- pm.style.display=p==='text'?'none':'';pt.style.display=p==='morse'?'none':'';
- pm.textContent=morse;pt.textContent=morse?dec(morse):'';send.disabled=!morse.trim()||blockedNow();
- const skip=[...inp.value.toUpperCase()].filter(c=>c.trim()&&!T[c]).length;
- pw.textContent=skip?`지원하지 않는 문자 ${skip}개는 제외돼요 (영문·숫자·.,?!/-@:)`:''}
-inp.addEventListener('input',()=>{stopT();morse=enc(inp.value);render()});
-$('clr').onclick=()=>{stopT();morse='';inp.value='';render();if(S.showInp)inp.focus()};
-$('bs').onclick=()=>{stopT();const m=morse.replace(/[ /]+$/,'');const i=m.lastIndexOf(' ');
- morse=i<0?'':m.slice(0,i)+' ';inp.value=dec(morse).replace(/·/g,'').trimEnd();render()};
+function buildRow(item) {
+  const row = makeEl('div', 'item');
+  const key = item.key;
 
-/* ---------- 오디오 ---------- */
-let ac,playEnd=0;const F=880,G=.07;
-function ctx(){try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();if(ac.state!=='running')ac.resume()}catch(e){}}
-function tone(t,d){const o=ac.createOscillator(),g=ac.createGain();o.type='square';o.frequency.value=F;o.connect(g);g.connect(ac.destination);
- g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(G,t+.004);g.gain.setValueAtTime(G,t+d-.004);g.gain.linearRampToValueAtTime(0,t+d);o.start(t);o.stop(t+d+.01)}
-function play(m){try{ctx();const u=U()/1000;let t=Math.max(ac.currentTime+.05,playEnd);
- for(const c of m){if(c==='.'){tone(t,u);t+=2*u}else if(c==='-'){tone(t,3*u);t+=4*u}else if(c===' '||c==='/')t+=2*u}
- playEnd=t+.4}catch(e){}}
-addEventListener('pointerdown',ctx,{passive:true});
+  if (item.type === 'switch') {
+    const btn = makeEl('button', 'switch' + (settings[key] ? ' on' : ''));
+    btn.setAttribute('role', 'switch');
+    btn.setAttribute('aria-checked', !!settings[key]);
+    btn.onclick = () => {
+      setSetting(key, settings[key] ? 0 : 1);
+      btn.classList.toggle('on', !!settings[key]);
+      btn.setAttribute('aria-checked', !!settings[key]);
+    };
+    row.append(makeEl('span', '', item.label), btn);
+  }
 
-/* ---------- 탭 키 ---------- */
-let down=0,tG,tW,osc=null,gn;
-function stopT(){clearTimeout(tG);clearTimeout(tW)}
-function kd(){if(down)return;down=performance.now();key.classList.add('down');stopT();ctx();
- if(S.keySnd)try{osc=ac.createOscillator();gn=ac.createGain();osc.type='square';osc.frequency.value=F;gn.gain.value=G;osc.connect(gn);gn.connect(ac.destination);osc.start()}catch(e){osc=null}}
-function ku(){if(!down)return;const d=performance.now()-down;down=0;key.classList.remove('down');
- try{osc&&osc.stop()}catch(e){}osc=null;
- morse+=d<S.dashMs?'.':'-';inp.value=dec(morse).replace(/·/g,'');render();
- if(S.autoGap){
-  tG=setTimeout(()=>{if(morse&&!/ $/.test(morse)){morse+=' ';render()}},S.letterMs);
-  tW=setTimeout(()=>{morse=morse.trimEnd()+' / ';render()},Math.max(S.wordMs,S.letterMs+300))}}
-key.addEventListener('pointerdown',e=>{e.preventDefault();key.setPointerCapture(e.pointerId);kd()});
-key.addEventListener('pointerup',ku);key.addEventListener('pointercancel',ku);
-key.addEventListener('contextmenu',e=>e.preventDefault());
-const typing=()=>/INPUT|TEXTAREA/.test(document.activeElement.tagName)||sheet.classList.contains('open');
-addEventListener('keydown',e=>{if(S.space&&e.code==='Space'&&!typing()){e.preventDefault();if(!e.repeat)kd()}});
-addEventListener('keyup',e=>{if(S.space&&e.code==='Space'&&!typing())ku()});
+  else if (item.type === 'segmented') {
+    const group = makeEl('div', 'segmented');
+    if (item.options.length > 3) row.classList.add('col');
+    for (const [value, label] of item.options) {
+      const btn = makeEl('button', String(settings[key]) === value ? 'on' : '', label);
+      btn.onclick = () => {
+        setSetting(key, value);
+        [...group.children].forEach(b => b.classList.toggle('on', b === btn));
+      };
+      group.append(btn);
+    }
+    row.append(makeEl('span', '', item.label), group);
+  }
 
-/* ---------- 메시지 ---------- */
-const msgs=new Map();
-let since=0,mode='init',first=true,busy=0;
-const API='/api/messages';
-const hm=t=>{const d=new Date(t);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')};
-function draw(){
- const arr=[...msgs.values()].sort((a,b)=>a.t-b.t).slice(-100);
- if(!arr.length){feed.innerHTML='<div class="empty">텍스트를 입력하거나 키를 눌러<br>모스부호로 대화해 보세요.</div>';return}
- const stick=feed.scrollHeight-feed.scrollTop-feed.clientHeight<80||feed.querySelector('.empty');
- feed.textContent='';
- for(const m of arr){
-  const mine=m.name===me;
-  const d=el('div','msg'+(mine?' mine':'')+(m.admin?' admin':'')+(m.pending?' pend':''));
-  const meta=[];if(S.who&&!mine)meta.push(m.name);if(S.time)meta.push(hm(m.t));
-  if(meta.length||m.failed||m.admin){const w=el('div','who');
-   if(m.admin)w.append(el('span','adm','관리자'));
-   w.append(document.createTextNode(meta.join(' · ')));
-   if(m.failed)w.append(el('span','bad',(meta.length?' · ':'')+'⚠ 통신 오류'));d.append(w)}
-  const b=el('div','bub');
-  if(S.disp!=='text')b.append(el('div','mc',m.morse));
-  if(S.disp!=='morse')b.append(el('div','tx',dec(m.morse)));
-  b.onclick=()=>play(m.morse);d.append(b);feed.append(d)}
- if(stick)feed.scrollTop=feed.scrollHeight}
+  else if (item.type === 'range') {
+    row.classList.add('col');
+    const valueLabel = makeEl('span', '', settings[key] + item.unit);
+    const top = makeEl('div', 'item-top');
+    top.append(makeEl('span', '', item.label), valueLabel);
 
-function setMode(m){mode=m;const s=$('st'),n=$('note');
- s.className='dot'+(m==='on'?' on':m==='off'?' off':'');
- n.style.display=(m==='local'||m==='off')?'block':'none';
- n.textContent=m==='local'?'공유 서버가 연결되지 않아 이 기기에서만 보여요.':m==='off'?'연결이 불안정해요. 다시 시도하는 중…':''}
+    const slider = makeEl('input');
+    Object.assign(slider, { type: 'range', min: item.min, max: item.max, step: item.step, value: settings[key] });
+    slider.oninput = () => {
+      valueLabel.textContent = slider.value + item.unit;
+      setSetting(key, +slider.value);
+    };
+    row.append(top, slider);
 
-function ingest(arr){let changed=false;
- for(const m of arr){if(m.id>since)since=m.id;
-  const had=msgs.has(m.cid);
-  msgs.set(m.cid,m);changed=true;
-  if(!had&&!first&&S.auto&&m.name!==me)play(m.morse)}
- first=false;if(changed)draw()}
+    // 자동 띄우기가 꺼져 있으면 대기 시간 설정은 비활성
+    if ((key === 'letterMs' || key === 'wordMs') && !settings.autoGap) {
+      row.style.opacity = '.4';
+      slider.disabled = true;
+    }
+  }
 
-async function poll(){
- if(busy||mode==='local')return;busy=1;
- try{
-  const r=await fetch(`${API}?room=${room}&since=${since}`,{cache:'no-store'});
-  if(r.status===404){setMode('local');return}
-  if(r.status===503){const e2=await r.json().catch(()=>({}));if(e2.error!=='full')setMode('local');return}
-  if(!r.ok)throw 0;
-  const j=await r.json();setMode('on');ingest(j.msgs||[]);
- }catch(e){setMode(location.protocol==='file:'?'local':'off')}
- finally{busy=0}}
+  else if (item.type === 'swatch') {
+    row.classList.add('col');
+    const group = makeEl('div', 'swatches');
+    for (const [value, label, color] of item.options) {
+      const btn = makeEl('button', 'swatch' + (settings[key] === value ? ' on' : ''));
+      btn.style.background = color;
+      btn.title = label;
+      btn.setAttribute('aria-label', label);
+      btn.onclick = () => {
+        setSetting(key, value);
+        [...group.children].forEach(b => b.classList.toggle('on', b === btn));
+      };
+      group.append(btn);
+    }
+    row.append(makeEl('span', '', item.label), group);
+  }
 
-/* 전송 막힘 (도배 / 서버 용량 부족) */
-let blockedUntil=0,blkT=null,blkWhy='';
-function blockedNow(){return Date.now()<blockedUntil}
-function startBlock(sec,why){
- blockedUntil=Date.now()+Math.max(1,sec)*1000;blkWhy=why;
- clearInterval(blkT);tickBlock();blkT=setInterval(tickBlock,250)}
-function tickBlock(){
- if(blkWhy==='ban'){$('blk').textContent='관리자에 의해 차단되어 메시지를 보낼 수 없어요.';send.disabled=true;return}
- const left=Math.ceil((blockedUntil-Date.now())/1000);
- if(left<=0){clearInterval(blkT);$('blk').textContent='';render();return}
- const t=left>=60?Math.floor(left/60)+'분 '+(left%60)+'초':left+'초';
- const pre={full:'서버 저장 공간이 가득 찼어요. ',timeout:'관리자에 의해 타임아웃 중이에요. '}[blkWhy]||'메시지를 너무 많이 보냈어요. ';
- $('blk').textContent=pre+t+' 후에 다시 보낼 수 있어요.';
- send.disabled=true}
+  return row;
+}
 
-/* 관리자 명령어 (/ban, /timeout, /unban) — 서버가 처리 */
-let sayT;
-function say(t,bad){const c=$('cres');c.textContent=t;c.style.color=bad?'var(--bad)':'var(--mute)';clearTimeout(sayT);sayT=setTimeout(()=>c.textContent='',7000)}
-async function runCmd(text){
- stopT();morse='';inp.value='';render();
- try{
-  const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'cmd',room,key:adminKey,text})});
-  const j=await r.json().catch(()=>({}));
-  if(r.status===401){adminKey='';store.set('mc-key','')}
-  say(j.msg||(r.ok?'완료':'명령 실패 ('+(j.error||r.status)+')'),!r.ok)
- }catch(e){say('⚠ 통신 오류',1)}}
+function buildAccountRows() {
+  const rows = [makeEl('div', 'section-title', '계정 · 방')];
 
-async function doSend(){
- if(blockedNow())return;
- const raw=inp.value.trim();
- if(adminKey&&raw[0]==='/')return runCmd(raw);
- const m=morse.replace(/[^.\-\/ ]/g,'').replace(/[ /]+$/,'').trim().slice(0,400);if(!m)return;
- const msg={cid:Math.random().toString(36).slice(2,10)+Date.now().toString(36),name:me,morse:m,t:Date.now(),pending:1};
- stopT();morse='';inp.value='';render();
- msgs.set(msg.cid,msg);draw();
- if(mode==='local'){msg.pending=0;draw();return}
- try{
-  const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({room,name:me,morse:m,cid:msg.cid,key:adminKey})});
-  const j=await r.json().catch(()=>({}));
-  if(r.status===404||(r.status===503&&j.error!=='full')){setMode('local');msg.pending=0;draw();return}
-  if(!r.ok){
-   if(j.error==='banned')startBlock(Infinity,'ban');
-   else if(j.error==='rate'||j.error==='full'||j.error==='timeout')startBlock(j.retryAfter||+r.headers.get('Retry-After')||60,j.error);
-   throw 0}
-  msg.pending=0;poll();
- }catch(e){msg.pending=0;msg.failed=1;draw()}}
-send.onclick=doSend;
-inp.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing&&S.enter)doSend()});
+  // 이름
+  const nameRow = makeEl('div', 'item');
+  const nameInput = makeEl('input');
+  Object.assign(nameInput, { type: 'text', maxLength: 12, value: settings.name, autocomplete: 'off' });
+  nameInput.onchange = () => {
+    const name = nameInput.value.trim().slice(0, 12);
+    if (!name) { nameInput.value = settings.name; return; }
+    settings.name = name;
+    saveSettings();
+    applySettings();
+  };
+  nameRow.append(makeEl('span', '', '이름'), nameInput);
 
-if(location.protocol==='file:')setMode('local');
-setInterval(()=>{if(!document.hidden)poll()},1500);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)poll()});
-apply();poll();
+  // 방 이동
+  const roomRow = makeEl('div', 'item');
+  const roomInput = makeEl('input');
+  Object.assign(roomInput, { type: 'text', maxLength: 32, value: room, placeholder: '영문·숫자·-', autocomplete: 'off' });
+  const goBtn = makeEl('button', 'small', '이동');
+  const goToRoom = () => {
+    const next = cleanRoom(roomInput.value);
+    if (next && next !== room) location.search = '?r=' + next;
+  };
+  goBtn.onclick = goToRoom;
+  roomInput.onkeydown = e => { if (e.key === 'Enter') goToRoom(); };
+  roomRow.append(makeEl('span', '', '방'), roomInput, goBtn);
+
+  // 초대 링크
+  const linkRow = makeEl('div', 'item');
+  const copyBtn = makeEl('button', 'small', '복사');
+  copyBtn.onclick = () => copyLink(copyBtn);
+  linkRow.append(makeEl('span', '', '초대 링크'), copyBtn);
+
+  return [...rows, nameRow, roomRow, linkRow];
+}
+
+function authErrorText(res, data) {
+  if (res.status === 401) return '비밀번호가 달라요.';
+  if (res.status === 429) return `실패가 너무 많아요. ${data.retryAfter || 600}초 뒤에 다시 시도하세요.`;
+  if (res.status === 501) return '서버에 ADMIN_PASSWORD가 설정되지 않았어요.';
+  return '확인하지 못했어요. 잠시 후 다시 시도하세요.';
+}
+
+function buildAdminRows() {
+  const title = makeEl('div', 'section-title', '관리자');
+  const row = makeEl('div', 'item');
+
+  // 로그인 상태
+  if (adminKey) {
+    const logoutBtn = makeEl('button', 'small', '로그아웃');
+    logoutBtn.onclick = () => { adminKey = ''; store.set('mc-key', ''); buildSheet(); };
+    row.append(makeEl('span', '', '관리자 모드 켜짐'), logoutBtn);
+    return [title, row];
+  }
+
+  // 로그인 폼
+  const keyInput = makeEl('input');
+  Object.assign(keyInput, { type: 'password', placeholder: '관리자 비밀번호', autocomplete: 'off' });
+  keyInput.style.textAlign = 'right';
+  const loginBtn = makeEl('button', 'small', '로그인');
+  const errorMsg = makeEl('div', 'warn');
+
+  const login = async () => {
+    const key = keyInput.value;
+    if (!key) return;
+    loginBtn.disabled = true;
+    errorMsg.textContent = '';
+    try {
+      const res = await postJson({ action: 'auth', key });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) { adminKey = key; store.set('mc-key', key); buildSheet(); return; }
+      errorMsg.textContent = authErrorText(res, data);
+    } catch (e) {
+      errorMsg.textContent = '통신 오류';
+    }
+    loginBtn.disabled = false;
+  };
+  loginBtn.onclick = login;
+  keyInput.onkeydown = e => { if (e.key === 'Enter') login(); };
+
+  row.append(keyInput, loginBtn);
+  return [title, row, errorMsg];
+}
+
+function buildSheet() {
+  const panel = document.querySelector('.panel');
+  const scrollTop = panel.scrollTop;
+
+  sheetBody.textContent = '';
+  sheetBody.append(...buildAccountRows(), ...buildAdminRows());
+  for (const section of SETTINGS_SCHEMA) {
+    sheetBody.append(makeEl('div', 'section-title', section.title), ...section.items.map(buildRow));
+  }
+
+  const resetBtn = makeEl('button', 'reset', '설정 초기화');
+  resetBtn.onclick = () => {
+    if (!confirm('모든 설정을 기본값으로 되돌릴까요? (이름은 유지)')) return;
+    settings = { ...DEFAULT_SETTINGS, name: settings.name };
+    saveSettings();
+    applySettings();
+    buildSheet();
+  };
+  sheetBody.append(resetBtn);
+
+  panel.scrollTop = scrollTop;
+}
+
+const openSheet = () => { buildSheet(); sheet.classList.add('open'); };
+const closeSheet = () => sheet.classList.remove('open');
+settingsBtn.onclick = openSheet;
+sheetClose.onclick = closeSheet;
+sheet.addEventListener('click', e => { if (e.target === sheet) closeSheet(); });
+addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+
+
+// -- 입력
+let morse = '';
+
+function renderComposer() {
+  const mode = settings.preview;
+  previewBox.style.display = mode === 'off' ? 'none' : '';
+  previewMorse.style.display = mode === 'text' ? 'none' : '';
+  previewText.style.display = mode === 'morse' ? 'none' : '';
+  previewMorse.textContent = morse;
+  previewText.textContent = morse ? decode(morse, settings.lang) : '';
+  sendBtn.disabled = !morse.trim() || isBlocked();
+
+  const skipped = countUnsupported(textInput.value, settings.lang);
+  charWarn.textContent = skipped
+    ? `지원하지 않는 문자 ${skipped}개는 제외돼요 (${LANG_INFO[settings.lang].allowed})`
+    : '';
+}
+
+// 모스 → 텍스트로 바꿔 입력창에 표시 (모르는 부호 '·'는 숨김)
+const showMorseInInput = () => {
+  textInput.value = decode(morse, settings.lang).replace(/·/g, '').trimEnd();
+};
+
+function clearDraft() {
+  cancelGapTimers();
+  morse = '';
+  textInput.value = '';
+  renderComposer();
+}
+
+textInput.addEventListener('input', () => {
+  cancelGapTimers();
+  morse = encode(textInput.value, settings.lang);
+  renderComposer();
+});
+
+clearBtn.onclick = () => {
+  clearDraft();
+  if (settings.showInput) textInput.focus();
+};
+
+// 마지막 글자 하나 지우기
+backspaceBtn.onclick = () => {
+  cancelGapTimers();
+  const trimmed = morse.replace(/[ /]+$/, '');
+  const lastSpace = trimmed.lastIndexOf(' ');
+  morse = lastSpace < 0 ? '' : trimmed.slice(0, lastSpace) + ' ';
+  showMorseInInput();
+  renderComposer();
+};
+
+// 한/영 전환 (쓰던 내용은 비움)
+langBtn.onclick = () => {
+  setSetting('lang', settings.lang === 'ko' ? 'en' : 'ko');
+  langBtn.blur();
+  if (settings.showInput) textInput.focus();
+};
+
+
+// -- 오디오
+const TONE_HZ = 880;
+const TONE_GAIN = 0.07;
+let audioCtx, playbackEndsAt = 0;
+
+function initAudio() {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state !== 'running') audioCtx.resume();
+  } catch (e) {}
+}
+addEventListener('pointerdown', initAudio, { passive: true });
+
+function beep(start, duration) {
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  const fade = 0.004;
+  osc.type = 'square';
+  osc.frequency.value = TONE_HZ;
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  gain.gain.setValueAtTime(0, start);
+  gain.gain.linearRampToValueAtTime(TONE_GAIN, start + fade);
+  gain.gain.setValueAtTime(TONE_GAIN, start + duration - fade);
+  gain.gain.linearRampToValueAtTime(0, start + duration);
+  osc.start(start);
+  osc.stop(start + duration + 0.01);
+}
+
+// 점 = 1단위, 선 = 3단위, 부호 사이 = 1단위
+function playMorse(code) {
+  try {
+    initAudio();
+    const unit = dotMs() / 1000;
+    let t = Math.max(audioCtx.currentTime + 0.05, playbackEndsAt);
+    for (const ch of code) {
+      if (ch === '.')      { beep(t, unit);     t += 2 * unit; }
+      else if (ch === '-') { beep(t, 3 * unit); t += 4 * unit; }
+      else if (ch === ' ' || ch === '/') t += 2 * unit;
+    }
+    playbackEndsAt = t + 0.4;
+  } catch (e) {}
+}
+
+
+// -- 탭 키
+let pressStart = 0, letterTimer, wordTimer, keyOsc = null, keyGain;
+
+const cancelGapTimers = () => { clearTimeout(letterTimer); clearTimeout(wordTimer); };
+
+function startKeyTone() {
+  try {
+    keyOsc = audioCtx.createOscillator();
+    keyGain = audioCtx.createGain();
+    keyOsc.type = 'square';
+    keyOsc.frequency.value = TONE_HZ;
+    keyGain.gain.value = TONE_GAIN;
+    keyOsc.connect(keyGain);
+    keyGain.connect(audioCtx.destination);
+    keyOsc.start();
+  } catch (e) { keyOsc = null; }
+}
+
+function stopKeyTone() {
+  try { keyOsc && keyOsc.stop(); } catch (e) {}
+  keyOsc = null;
+}
+
+// 잠깐 멈추면 글자 띄우기, 더 멈추면 단어 띄우기
+function scheduleGaps() {
+  letterTimer = setTimeout(() => {
+    if (morse && !/ $/.test(morse)) { morse += ' '; renderComposer(); }
+  }, settings.letterMs);
+
+  wordTimer = setTimeout(() => {
+    morse = morse.trimEnd() + ' / ';
+    renderComposer();
+  }, Math.max(settings.wordMs, settings.letterMs + 300));
+}
+
+function onKeyDown() {
+  if (pressStart) return;
+  pressStart = performance.now();
+  tapKey.classList.add('down');
+  cancelGapTimers();
+  initAudio();
+  if (settings.keySound) startKeyTone();
+}
+
+function onKeyUp() {
+  if (!pressStart) return;
+  const heldMs = performance.now() - pressStart;
+  pressStart = 0;
+  tapKey.classList.remove('down');
+  stopKeyTone();
+
+  morse += heldMs < settings.dashMs ? '.' : '-';
+  showMorseInInput();
+  renderComposer();
+  if (settings.autoGap) scheduleGaps();
+}
+
+tapKey.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  tapKey.setPointerCapture(e.pointerId);
+  onKeyDown();
+});
+tapKey.addEventListener('pointerup', onKeyUp);
+tapKey.addEventListener('pointercancel', onKeyUp);
+tapKey.addEventListener('contextmenu', e => e.preventDefault());
+
+// 스페이스바 = 탭 키 (입력 중이거나 설정이 열려 있으면 제외)
+const isTyping = () => /INPUT|TEXTAREA/.test(document.activeElement.tagName) || sheet.classList.contains('open');
+addEventListener('keydown', e => {
+  if (settings.spaceToTap && e.code === 'Space' && !isTyping()) {
+    e.preventDefault();
+    if (!e.repeat) onKeyDown();
+  }
+});
+addEventListener('keyup', e => {
+  if (settings.spaceToTap && e.code === 'Space' && !isTyping()) onKeyUp();
+});
+
+
+// -- 메시지 목록
+const messages = new Map();   // cid → 메시지
+const formatTime = t => {
+  const d = new Date(t);
+  return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+};
+
+function buildMessage(msg) {
+  const mine = msg.name === settings.name;
+  const wrap = makeEl('div', 'msg' + (mine ? ' mine' : '') + (msg.admin ? ' admin' : '') + (msg.pending ? ' pending' : ''));
+
+  const meta = [];
+  if (settings.showName && !mine) meta.push(msg.name);
+  if (settings.showTime) meta.push(formatTime(msg.t));
+
+  if (meta.length || msg.failed || msg.admin) {
+    const head = makeEl('div', 'meta');
+    if (msg.admin) head.append(makeEl('span', 'badge-admin', '관리자'));
+    head.append(document.createTextNode(meta.join(' · ')));
+    if (msg.failed) head.append(makeEl('span', 'error', (meta.length ? ' · ' : '') + '⚠ 통신 오류'));
+    wrap.append(head);
+  }
+
+  const bubble = makeEl('div', 'bubble');
+  if (settings.display !== 'text') bubble.append(makeEl('div', 'morse', msg.morse));
+  if (settings.display !== 'morse') bubble.append(makeEl('div', 'text', decode(msg.morse, msg.lang)));
+  bubble.onclick = () => playMorse(msg.morse);
+  wrap.append(bubble);
+  return wrap;
+}
+
+function renderFeed() {
+  const list = [...messages.values()].sort((a, b) => a.t - b.t).slice(-100);
+  if (!list.length) {
+    feed.innerHTML = '<div class="empty">텍스트를 입력하거나 키를 눌러<br>모스부호로 대화해 보세요.</div>';
+    return;
+  }
+
+  // 맨 아래를 보고 있었으면 새 메시지에서도 아래로 따라감
+  const stickToBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 80 || feed.querySelector('.empty');
+  feed.textContent = '';
+  for (const msg of list) feed.append(buildMessage(msg));
+  if (stickToBottom) feed.scrollTop = feed.scrollHeight;
+}
+
+
+// -- 서버 연결
+let connection = 'init';   // init | on | off | local
+let lastId = 0, firstLoad = true, polling = false;
+
+function setConnection(state) {
+  connection = state;
+  statusDot.className = 'dot' + (state === 'on' ? ' on' : state === 'off' ? ' off' : '');
+  notice.style.display = (state === 'local' || state === 'off') ? 'block' : 'none';
+  notice.textContent =
+    state === 'local' ? '공유 서버가 연결되지 않아 이 기기에서만 보여요.' :
+    state === 'off'   ? '연결이 불안정해요. 다시 시도하는 중…' : '';
+}
+
+function ingest(list) {
+  for (const msg of list) {
+    if (msg.id > lastId) lastId = msg.id;
+    const isNew = !messages.has(msg.cid);
+    messages.set(msg.cid, msg);
+    if (isNew && !firstLoad && settings.autoPlay && msg.name !== settings.name) playMorse(msg.morse);
+  }
+  firstLoad = false;
+  if (list.length) renderFeed();
+}
+
+async function poll() {
+  if (polling || connection === 'local') return;
+  polling = true;
+  try {
+    const res = await fetch(`${API_URL}?room=${room}&since=${lastId}`, { cache: 'no-store' });
+    if (res.status === 404) return setConnection('local');
+    if (res.status === 503) {
+      const data = await res.json().catch(() => ({}));
+      if (data.error !== 'full') setConnection('local');
+      return;
+    }
+    if (!res.ok) throw new Error('poll failed');
+
+    const data = await res.json();
+    setConnection('on');
+    ingest(data.msgs || []);
+  } catch (e) {
+    setConnection(location.protocol === 'file:' ? 'local' : 'off');
+  } finally {
+    polling = false;
+  }
+}
+
+
+// -- 전송 막힘 (도배 · 타임아웃 · 차단 · 서버 용량)
+let blockedUntil = 0, blockTimer = null, blockReason = '';
+const isBlocked = () => Date.now() < blockedUntil;
+
+const BLOCK_PREFIX = {
+  full: '서버 저장 공간이 가득 찼어요. ',
+  timeout: '관리자에 의해 타임아웃 중이에요. ',
+};
+
+function startBlock(seconds, reason) {
+  blockedUntil = Date.now() + Math.max(1, seconds) * 1000;
+  blockReason = reason;
+  clearInterval(blockTimer);
+  tickBlock();
+  blockTimer = setInterval(tickBlock, 250);
+}
+
+function tickBlock() {
+  if (blockReason === 'ban') {
+    blockMsg.textContent = '관리자에 의해 차단되어 메시지를 보낼 수 없어요.';
+    sendBtn.disabled = true;
+    return;
+  }
+
+  const left = Math.ceil((blockedUntil - Date.now()) / 1000);
+  if (left <= 0) {
+    clearInterval(blockTimer);
+    blockMsg.textContent = '';
+    renderComposer();
+    return;
+  }
+
+  const time = left >= 60 ? `${Math.floor(left / 60)}분 ${left % 60}초` : `${left}초`;
+  const prefix = BLOCK_PREFIX[blockReason] || '메시지를 너무 많이 보냈어요. ';
+  blockMsg.textContent = `${prefix}${time} 후에 다시 보낼 수 있어요.`;
+  sendBtn.disabled = true;
+}
+
+
+// -- 관리자 명령어 (/ban · /timeout · /unban, 서버가 처리)
+let cmdResultTimer;
+
+function showCmdResult(text, isError) {
+  cmdResult.textContent = text;
+  cmdResult.style.color = isError ? 'var(--bad)' : 'var(--mute)';
+  clearTimeout(cmdResultTimer);
+  cmdResultTimer = setTimeout(() => cmdResult.textContent = '', 7000);
+}
+
+async function runAdminCommand(text) {
+  clearDraft();
+  try {
+    const res = await postJson({ action: 'cmd', room, key: adminKey, text });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401) { adminKey = ''; store.set('mc-key', ''); }
+    showCmdResult(data.msg || (res.ok ? '완료' : `명령 실패 (${data.error || res.status})`), !res.ok);
+  } catch (e) {
+    showCmdResult('⚠ 통신 오류', true);
+  }
+}
+
+
+// -- 메시지 전송
+const newClientId = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+
+async function sendMessage() {
+  if (isBlocked()) return;
+
+  const raw = textInput.value.trim();
+  if (adminKey && raw[0] === '/') return runAdminCommand(raw);
+
+  const code = sanitizeMorse(morse);
+  if (!code) return;
+
+  // 먼저 흐리게 보여주고, 서버 응답을 받으면 확정
+  const msg = { cid: newClientId(), name: settings.name, morse: code, lang: settings.lang, t: Date.now(), pending: 1 };
+  clearDraft();
+  messages.set(msg.cid, msg);
+  renderFeed();
+
+  if (connection === 'local') { msg.pending = 0; renderFeed(); return; }
+
+  try {
+    const res = await postJson({ room, name: msg.name, morse: code, lang: msg.lang, cid: msg.cid, key: adminKey });
+    const data = await res.json().catch(() => ({}));
+
+    if (res.status === 404 || (res.status === 503 && data.error !== 'full')) {
+      setConnection('local');
+      msg.pending = 0;
+      renderFeed();
+      return;
+    }
+    if (!res.ok) {
+      if (data.error === 'banned') {
+        startBlock(Infinity, 'ban');
+      } else if (['rate', 'full', 'timeout'].includes(data.error)) {
+        startBlock(data.retryAfter || +res.headers.get('Retry-After') || 60, data.error);
+      }
+      throw new Error('send failed');
+    }
+
+    msg.pending = 0;
+    poll();
+  } catch (e) {
+    msg.pending = 0;
+    msg.failed = 1;
+    renderFeed();
+  }
+}
+
+sendBtn.onclick = sendMessage;
+textInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.isComposing && settings.enterToSend) sendMessage();
+});
+
+// 시작
+if (location.protocol === 'file:') setConnection('local');
+setInterval(() => { if (!document.hidden) poll(); }, 1500);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
+applySettings();
+poll();
 </script>
 </body>
 </html>
