@@ -35,6 +35,8 @@ h1{font-size:15px;font-weight:600;letter-spacing:.14em;margin:0;text-transform:u
 .msg.mine{align-self:flex-end;text-align:right}
 .who{font-size:.8em;color:var(--mute);margin-bottom:4px}
 .who .bad{color:var(--bad)}
+.who .adm{display:inline-block;background:var(--bad);color:#fff;font-size:.85em;line-height:1.5;padding:0 6px;border-radius:4px;margin-right:5px;letter-spacing:0}
+.msg.admin .bub{border-color:var(--bad)}
 .bub{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 14px;cursor:pointer;text-align:left}
 .mine .bub{background:var(--acc);color:var(--accfg);border-color:var(--acc)}
 .msg.pend .bub{opacity:.55}
@@ -102,6 +104,8 @@ button:disabled{opacity:.35;cursor:default}
   <div class="composer">
     <div class="prev" id="prevbox"><div class="mc" id="pm"></div><div class="tx" id="pt"></div></div>
     <div class="warn" id="pw"></div>
+    <div class="warn" id="blk"></div>
+    <div class="warn" id="cres"></div>
     <div class="row" id="row">
       <input id="inp" placeholder="메시지 입력 (영문·숫자)" autocomplete="off" autocapitalize="off" maxlength="120" enterkeyhint="send">
       <button id="bs" title="한 글자 지우기">⌫</button>
@@ -137,6 +141,7 @@ if(!S.name)S.name=store.get('mc-name','')||('OP-'+Math.floor(100+Math.random()*9
 const save=()=>store.set('mc-set',JSON.stringify(S));
 save();
 let me=S.name;
+let adminKey=store.get('mc-key','');
 const U=()=>1200/S.wpm; // ms (15wpm = 80ms)
 
 const cleanRoom=s=>(s||'').toLowerCase().replace(/[^a-z0-9-]/g,'').slice(0,32);
@@ -241,6 +246,24 @@ function build(){
  go.onclick=doGo;ri.onkeydown=e=>{if(e.key==='Enter')doGo()};d.append(ri,go);body.append(d);
  d=el('div','it');d.append(el('span','','초대 링크'));
  const cp=el('button','s','복사');cp.onclick=()=>copyLink(cp);d.append(cp);body.append(d);
+ body.append(el('div','sh','관리자'));
+ d=el('div','it');
+ if(adminKey){
+  d.append(el('span','','관리자 모드 켜짐'));
+  const lo=el('button','s','로그아웃');lo.onclick=()=>{adminKey='';store.set('mc-key','');build()};d.append(lo);body.append(d)}
+ else{
+  const ki=el('input');ki.type='password';ki.placeholder='관리자 비밀번호';ki.autocomplete='off';ki.style.textAlign='right';
+  const lb=el('button','s','로그인'),ms=el('div','warn');
+  const doLogin=async()=>{const k=ki.value;if(!k)return;lb.disabled=true;ms.textContent='';
+   try{
+    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'auth',key:k})});
+    const j=await r.json().catch(()=>({}));
+    if(r.ok){adminKey=k;store.set('mc-key',k);build();return}
+    ms.textContent=r.status===401?'비밀번호가 달라요.':r.status===429?'실패가 너무 많아요. '+(j.retryAfter||600)+'초 뒤에 다시 시도하세요.':r.status===501?'서버에 ADMIN_PASSWORD가 설정되지 않았어요.':'확인하지 못했어요. 잠시 후 다시 시도하세요.'
+   }catch(e){ms.textContent='통신 오류'}
+   lb.disabled=false};
+  lb.onclick=doLogin;ki.onkeydown=e=>{if(e.key==='Enter')doLogin()};
+  d.append(ki,lb);body.append(d,ms)}
  for(const sec of SCHEMA){body.append(el('div','sh',sec.t));for(const it of sec.items)body.append(row(it))}
  const rs=el('button','rst','설정 초기화');
  rs.onclick=()=>{if(confirm('모든 설정을 기본값으로 되돌릴까요? (이름은 유지)')){S={...DEF,name:S.name};save();apply();build()}};
@@ -258,7 +281,7 @@ function render(){
  const p=S.prev;
  $('prevbox').style.display=p==='off'?'none':'';
  pm.style.display=p==='text'?'none':'';pt.style.display=p==='morse'?'none':'';
- pm.textContent=morse;pt.textContent=morse?dec(morse):'';send.disabled=!morse.trim();
+ pm.textContent=morse;pt.textContent=morse?dec(morse):'';send.disabled=!morse.trim()||blockedNow();
  const skip=[...inp.value.toUpperCase()].filter(c=>c.trim()&&!T[c]).length;
  pw.textContent=skip?`지원하지 않는 문자 ${skip}개는 제외돼요 (영문·숫자·.,?!/-@:)`:''}
 inp.addEventListener('input',()=>{stopT();morse=enc(inp.value);render()});
@@ -306,10 +329,12 @@ function draw(){
  feed.textContent='';
  for(const m of arr){
   const mine=m.name===me;
-  const d=el('div','msg'+(mine?' mine':'')+(m.pending?' pend':''));
+  const d=el('div','msg'+(mine?' mine':'')+(m.admin?' admin':'')+(m.pending?' pend':''));
   const meta=[];if(S.who&&!mine)meta.push(m.name);if(S.time)meta.push(hm(m.t));
-  if(meta.length||m.failed){const w=el('div','who',meta.join(' · '));
-   if(m.failed)w.append(el('span','bad',(meta.length?' · ':'')+'전송 실패'));d.append(w)}
+  if(meta.length||m.failed||m.admin){const w=el('div','who');
+   if(m.admin)w.append(el('span','adm','관리자'));
+   w.append(document.createTextNode(meta.join(' · ')));
+   if(m.failed)w.append(el('span','bad',(meta.length?' · ':'')+'⚠ 통신 오류'));d.append(w)}
   const b=el('div','bub');
   if(S.disp!=='text')b.append(el('div','mc',m.morse));
   if(S.disp!=='morse')b.append(el('div','tx',dec(m.morse)));
@@ -332,22 +357,57 @@ async function poll(){
  if(busy||mode==='local')return;busy=1;
  try{
   const r=await fetch(`${API}?room=${room}&since=${since}`,{cache:'no-store'});
-  if(r.status===404||r.status===503){setMode('local');return}
+  if(r.status===404){setMode('local');return}
+  if(r.status===503){const e2=await r.json().catch(()=>({}));if(e2.error!=='full')setMode('local');return}
   if(!r.ok)throw 0;
   const j=await r.json();setMode('on');ingest(j.msgs||[]);
  }catch(e){setMode(location.protocol==='file:'?'local':'off')}
  finally{busy=0}}
 
+/* 전송 막힘 (도배 / 서버 용량 부족) */
+let blockedUntil=0,blkT=null,blkWhy='';
+function blockedNow(){return Date.now()<blockedUntil}
+function startBlock(sec,why){
+ blockedUntil=Date.now()+Math.max(1,sec)*1000;blkWhy=why;
+ clearInterval(blkT);tickBlock();blkT=setInterval(tickBlock,250)}
+function tickBlock(){
+ if(blkWhy==='ban'){$('blk').textContent='관리자에 의해 차단되어 메시지를 보낼 수 없어요.';send.disabled=true;return}
+ const left=Math.ceil((blockedUntil-Date.now())/1000);
+ if(left<=0){clearInterval(blkT);$('blk').textContent='';render();return}
+ const t=left>=60?Math.floor(left/60)+'분 '+(left%60)+'초':left+'초';
+ const pre={full:'서버 저장 공간이 가득 찼어요. ',timeout:'관리자에 의해 타임아웃 중이에요. '}[blkWhy]||'메시지를 너무 많이 보냈어요. ';
+ $('blk').textContent=pre+t+' 후에 다시 보낼 수 있어요.';
+ send.disabled=true}
+
+/* 관리자 명령어 (/ban, /timeout, /unban) — 서버가 처리 */
+let sayT;
+function say(t,bad){const c=$('cres');c.textContent=t;c.style.color=bad?'var(--bad)':'var(--mute)';clearTimeout(sayT);sayT=setTimeout(()=>c.textContent='',7000)}
+async function runCmd(text){
+ stopT();morse='';inp.value='';render();
+ try{
+  const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'cmd',room,key:adminKey,text})});
+  const j=await r.json().catch(()=>({}));
+  if(r.status===401){adminKey='';store.set('mc-key','')}
+  say(j.msg||(r.ok?'완료':'명령 실패 ('+(j.error||r.status)+')'),!r.ok)
+ }catch(e){say('⚠ 통신 오류',1)}}
+
 async function doSend(){
+ if(blockedNow())return;
+ const raw=inp.value.trim();
+ if(adminKey&&raw[0]==='/')return runCmd(raw);
  const m=morse.replace(/[^.\-\/ ]/g,'').replace(/[ /]+$/,'').trim().slice(0,400);if(!m)return;
  const msg={cid:Math.random().toString(36).slice(2,10)+Date.now().toString(36),name:me,morse:m,t:Date.now(),pending:1};
  stopT();morse='';inp.value='';render();
  msgs.set(msg.cid,msg);draw();
  if(mode==='local'){msg.pending=0;draw();return}
  try{
-  const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({room,name:me,morse:m,cid:msg.cid})});
-  if(r.status===404||r.status===503){setMode('local');msg.pending=0;draw();return}
-  if(!r.ok)throw 0;
+  const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({room,name:me,morse:m,cid:msg.cid,key:adminKey})});
+  const j=await r.json().catch(()=>({}));
+  if(r.status===404||(r.status===503&&j.error!=='full')){setMode('local');msg.pending=0;draw();return}
+  if(!r.ok){
+   if(j.error==='banned')startBlock(Infinity,'ban');
+   else if(j.error==='rate'||j.error==='full'||j.error==='timeout')startBlock(j.retryAfter||+r.headers.get('Retry-After')||60,j.error);
+   throw 0}
   msg.pending=0;poll();
  }catch(e){msg.pending=0;msg.failed=1;draw()}}
 send.onclick=doSend;
