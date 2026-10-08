@@ -1,11 +1,11 @@
-// -- Vercel Serverless Function: GET/POST /api/messages (위치: api/messages.js)
-// -- 저장소: Redis (REDIS_URL) / 관리자: 환경변수 ADMIN_PASSWORD
+// Vercel Serverless Function: GET/POST /api/messages (위치: api/messages.js)
+// 저장소: Redis (REDIS_URL) / 관리자: 환경변수 ADMIN_PASSWORD
 
 const { createClient } = require('redis');
 const crypto = require('crypto');
 
 
-// -- 설정
+// 설정
 const KEEP_MESSAGES = 200;            // 방마다 최근 N개만 보관
 const ROOM_TTL = 60 * 60 * 24 * 7;    // 7일 지나면 방 자동 삭제
 const MAX_TIMEOUT_MIN = 60 * 24 * 7;  // 타임아웃 최대 7일
@@ -25,7 +25,7 @@ const REDIS_URL = process.env.REDIS_URL ||
   process.env[Object.keys(process.env).find(k => /REDIS_URL$/.test(k)) || ''];
 
 
-// -- Redis 연결
+// Redis 연결
 let client = null;
 let connecting = null;
 
@@ -44,7 +44,7 @@ async function getClient() {
 }
 
 
-// -- 공통 도구
+// 공통 도구
 const isValidRoom = s => typeof s === 'string' && /^[a-z0-9-]{1,32}$/.test(s);
 const sha256 = s => crypto.createHash('sha256').update(String(s)).digest();
 
@@ -66,7 +66,7 @@ const cleanName = s => String(s || '').replace(/[\u0000-\u001f<>]/g, '').trim().
 const nameKey = (room, name) => `nm:${room}:${name.toLowerCase()}`;   // 이름 → 마지막 IP
 
 
-// -- 메시지 삭제 도구
+// 메시지 삭제 도구
 const parseMessage = s => { try { return JSON.parse(s); } catch { return null; } };
 
 // 보낸 사람 확인용 해시 (IP 원본은 저장하지 않고, 클라이언트에도 내려주지 않음)
@@ -84,7 +84,7 @@ async function removeMessages(r, room, rawList) {
 }
 
 
-// -- 관리자 인증 (실패 횟수 제한 포함)
+// 관리자 인증 (실패 횟수 제한 포함)
 // 'ok' | 'wrong' | { rate: 남은초 }
 async function checkAuth(r, ip, key) {
   const failKey = 'af:' + ip;
@@ -102,7 +102,7 @@ async function checkAuth(r, ip, key) {
 }
 
 
-// -- 관리자 명령어: /ban 이름 · /timeout 분 이름 · /unban 이름
+// 관리자 명령어: /ban 이름 · /timeout 분 이름 · /unban 이름
 // 이름으로 IP 찾기: 최근 메시지 기록 → 없으면 밴 목록에서
 async function findIp(r, room, name) {
   const ip = await r.get(nameKey(room, name));
@@ -185,7 +185,7 @@ async function runCommand(r, room, adminIp, text) {
 }
 
 
-// -- 전송 제한 확인 (차단 · 타임아웃 · 도배)
+// 전송 제한 확인 (차단 · 타임아웃 · 도배)
 // 막혀 있으면 { status, body }, 통과하면 null
 async function checkSendLimits(r, ip) {
   if (await r.hExists('bans', ip)) return { status: 403, body: { error: 'banned' } };
@@ -210,7 +210,7 @@ async function checkSendLimits(r, ip) {
 }
 
 
-// -- GET: 메시지 목록
+// GET: 메시지 목록
 async function handleGet(r, req, res) {
   const room = String(req.query.room || '');
   const since = parseInt(req.query.since, 10) || 0;
@@ -233,7 +233,7 @@ async function handleGet(r, req, res) {
 }
 
 
-// -- POST: 내 메시지 삭제 (보낸 사람 확인은 IP 해시, 관리자 메시지는 관리자만)
+// POST: 내 메시지 삭제 (보낸 사람 확인은 IP 해시, 관리자 메시지는 관리자만)
 async function handleDelete(r, res, body, ip) {
   if (!isValidRoom(body.room)) return res.status(400).json({ error: 'bad-room' });
   const cid = String(body.cid || '').replace(/[^a-z0-9]/gi, '').slice(0, 24);
@@ -252,7 +252,7 @@ async function handleDelete(r, res, body, ip) {
 }
 
 
-// -- POST: 관리자 로그인 확인
+// POST: 관리자 로그인 확인
 async function handleAuth(r, res, body, ip) {
   if (!process.env.ADMIN_PASSWORD) return res.status(501).json({ error: 'no-admin' });
 
@@ -263,7 +263,7 @@ async function handleAuth(r, res, body, ip) {
 }
 
 
-// -- POST: 관리자 명령어
+// POST: 관리자 명령어
 async function handleCommand(r, res, body, ip) {
   if (!process.env.ADMIN_PASSWORD) {
     return res.status(501).json({ error: 'no-admin', msg: '서버에 관리자 비밀번호가 없어요' });
@@ -289,7 +289,7 @@ async function handleCommand(r, res, body, ip) {
 }
 
 
-// -- POST: 메시지 전송
+// POST: 메시지 전송
 async function handleSend(r, res, body, ip) {
   const room = body.room;
   const morse = String(body.morse || '').replace(/[^.\-\/ ]/g, '').replace(/[ /]+$/, '').trim().slice(0, 400);
@@ -323,7 +323,7 @@ async function handleSend(r, res, body, ip) {
 }
 
 
-// -- POST: 요청 종류별로 나누기
+// POST: 요청 종류별로 나누기
 async function handlePost(r, req, res) {
   let body = req.body;
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = {}; } }
@@ -337,7 +337,7 @@ async function handlePost(r, req, res) {
 }
 
 
-// -- 진입점
+// 진입점
 module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   if (!REDIS_URL) return res.status(503).json({ error: 'no-storage' });
