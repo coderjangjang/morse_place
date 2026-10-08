@@ -121,10 +121,30 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 8px 0;
+  padding: 8px 14px 8px 0;
+  margin-right: -14px;          /* 스크롤바를 바깥 여백으로 빼서 말풍선 정렬 유지 */
   overflow-y: auto;
   overscroll-behavior: contain;
   font-size: calc(15px * var(--z, 1));
+}
+
+/* -- 스크롤바 */
+#feed, .panel {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--mute) 45%, transparent) transparent;
+}
+#feed::-webkit-scrollbar, .panel::-webkit-scrollbar {
+  width: 6px;
+}
+#feed::-webkit-scrollbar-track, .panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+#feed::-webkit-scrollbar-thumb, .panel::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--mute) 45%, transparent);
+}
+#feed::-webkit-scrollbar-thumb:hover, .panel::-webkit-scrollbar-thumb:hover {
+  background: var(--mute);
 }
 .empty {
   margin: auto;
@@ -174,6 +194,9 @@ h1 {
   background: var(--acc);
   color: var(--accfg);
   border-color: var(--acc);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;   /* 꾹 누르기 = 삭제 */
 }
 .msg.admin .bubble {
   border-color: var(--bad);
@@ -498,7 +521,7 @@ button:disabled {
     </div>
 
     <button class="tap-key" id="tapKey">탭 키 · 짧게 = · &nbsp; 길게 = −  (스페이스바)</button>
-    <div class="hint" id="hint">메시지를 누르면 소리로 들을 수 있어요</div>
+    <div class="hint" id="hint">메시지를 누르면 소리로 들을 수 있어요 · 내 메시지는 꾹 눌러서 삭제</div>
   </div>
 </div>
 
@@ -1253,9 +1276,53 @@ function buildMessage(msg) {
   const bubble = makeEl('div', 'bubble');
   if (settings.display !== 'text') bubble.append(makeEl('div', 'morse', msg.morse));
   if (settings.display !== 'morse') bubble.append(makeEl('div', 'text', decode(msg.morse, msg.lang)));
-  bubble.onclick = () => playMorse(msg.morse);
+  attachBubbleActions(bubble, msg, mine);
   wrap.append(bubble);
   return wrap;
+}
+
+// 짧게 누름 = 소리 재생, 내 메시지 꾹 누름 = 삭제
+const LONG_PRESS_MS = 600;
+
+function attachBubbleActions(bubble, msg, deletable) {
+  let pressTimer = null;
+  let longPressed = false;
+  const cancel = () => clearTimeout(pressTimer);
+
+  bubble.addEventListener('pointerdown', () => {
+    longPressed = false;
+    if (!deletable || msg.pending) return;
+    pressTimer = setTimeout(() => { longPressed = true; deleteMessage(msg); }, LONG_PRESS_MS);
+  });
+  for (const type of ['pointerup', 'pointerleave', 'pointercancel']) bubble.addEventListener(type, cancel);
+
+  bubble.addEventListener('click', () => { if (!longPressed) playMorse(msg.morse); });
+  bubble.addEventListener('contextmenu', e => { if (deletable) e.preventDefault(); });
+}
+
+async function deleteMessage(msg) {
+  if (!confirm('이 메시지를 삭제할까요?')) return;
+
+  // 서버에 올라가지 못한 메시지는 이 기기에서만 지움
+  if (msg.failed || msg.id == null || connection === 'local') {
+    messages.delete(msg.cid);
+    renderFeed();
+    return;
+  }
+
+  try {
+    const res = await postJson({ action: 'del', room, cid: msg.cid, key: adminKey });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok || res.status === 404) {   // 404 = 이미 지워진 메시지
+      messages.delete(msg.cid);
+      renderFeed();
+      poll();
+      return;
+    }
+    showCmdResult(res.status === 403 ? '내 메시지만 삭제할 수 있어요.' : `삭제 실패 (${data.error || res.status})`, true);
+  } catch (e) {
+    showCmdResult('⚠ 통신 오류', true);
+  }
 }
 
 function renderFeed() {
@@ -1276,6 +1343,7 @@ function renderFeed() {
 // -- 서버 연결
 let connection = 'init';   // init | on | off | local
 let lastId = 0, firstLoad = true, polling = false;
+let deleteRev = '';   // 서버의 삭제 횟수 (바뀌면 삭제된 메시지 정리)
 
 function setConnection(state) {
   connection = state;
@@ -1297,11 +1365,24 @@ function ingest(list) {
   if (list.length) renderFeed();
 }
 
+// 서버에 남아 있는 메시지(cids)만 남기고 나머지는 지움 (from = 서버 목록의 가장 오래된 id)
+function pruneDeleted(cids, from) {
+  const alive = new Set(cids);
+  let changed = false;
+  for (const [cid, msg] of messages) {
+    if (msg.id != null && msg.id >= from && !alive.has(cid)) {
+      messages.delete(cid);
+      changed = true;
+    }
+  }
+  if (changed) renderFeed();
+}
+
 async function poll() {
   if (polling || connection === 'local') return;
   polling = true;
   try {
-    const res = await fetch(`${API_URL}?room=${room}&since=${lastId}`, { cache: 'no-store' });
+    const res = await fetch(`${API_URL}?room=${room}&since=${lastId}&rev=${deleteRev}`, { cache: 'no-store' });
     if (res.status === 404) return setConnection('local');
     if (res.status === 503) {
       const data = await res.json().catch(() => ({}));
@@ -1312,6 +1393,8 @@ async function poll() {
 
     const data = await res.json();
     setConnection('on');
+    if (data.cids) pruneDeleted(data.cids, data.from || 0);
+    deleteRev = String(data.rev ?? '');
     ingest(data.msgs || []);
   } catch (e) {
     setConnection(location.protocol === 'file:' ? 'local' : 'off');
@@ -1377,6 +1460,7 @@ async function runAdminCommand(text) {
     const data = await res.json().catch(() => ({}));
     if (res.status === 401) { adminKey = ''; store.set('mc-key', ''); }
     showCmdResult(data.msg || (res.ok ? '완료' : `명령 실패 (${data.error || res.status})`), !res.ok);
+    if (res.ok) poll();
   } catch (e) {
     showCmdResult('⚠ 통신 오류', true);
   }
@@ -1436,7 +1520,8 @@ textInput.addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.isComposing && settings.enterToSend) sendMessage();
 });
 
-// 시작
+
+// -- 시작
 if (location.protocol === 'file:') setConnection('local');
 setInterval(() => { if (!document.hidden) poll(); }, 1500);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
