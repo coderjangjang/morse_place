@@ -1,11 +1,11 @@
-// GET/POST /api/messages (위치: api/messages.js)
-// 저장소: Redis (REDIS_URL) / 관리자: 환경변수 ADMIN_PASSWORD
+// -- Vercel Serverless Function: GET/POST /api/messages (위치: api/messages.js)
+// -- 저장소: Redis (REDIS_URL) / 관리자: 환경변수 ADMIN_PASSWORD
 
 const { createClient } = require('redis');
 const crypto = require('crypto');
 
 
-// 설정
+// -- 설정
 const KEEP_MESSAGES = 200;            // 방마다 최근 N개만 보관
 const ROOM_TTL = 60 * 60 * 24 * 7;    // 7일 지나면 방 자동 삭제
 const MAX_TIMEOUT_MIN = 60 * 24 * 7;  // 타임아웃 최대 7일
@@ -66,6 +66,24 @@ const cleanName = s => String(s || '').replace(/[\u0000-\u001f<>]/g, '').trim().
 const nameKey = (room, name) => `nm:${room}:${name.toLowerCase()}`;   // 이름 → 마지막 IP
 
 
+// -- 메시지 삭제 도구
+const parseMessage = s => { try { return JSON.parse(s); } catch { return null; } };
+
+// 보낸 사람 확인용 해시 (IP 원본은 저장하지 않고, 클라이언트에도 내려주지 않음)
+const ownerHash = ip => crypto.createHash('sha256').update('own:' + REDIS_URL + ip).digest('hex').slice(0, 16);
+
+// 목록에서 해당 메시지들을 지우고 삭제 횟수(rev)를 올려 다른 기기에 알림
+async function removeMessages(r, room, rawList) {
+  let removed = 0;
+  for (const raw of rawList) removed += await r.lRem('m:' + room, 1, raw);
+  if (removed) {
+    await r.incr('rv:' + room);
+    await r.expire('rv:' + room, ROOM_TTL);
+  }
+  return removed;
+}
+
+
 // -- 관리자 인증 (실패 횟수 제한 포함)
 // 'ok' | 'wrong' | { rate: 남은초 }
 async function checkAuth(r, ip, key) {
@@ -100,7 +118,10 @@ const notFound = (name, withHint) => ({
 
 async function runCommand(r, room, adminIp, text) {
   const input = String(text || '').trim();
-  const usage = { status: 400, msg: '사용법: /ban 이름 · /timeout 분 이름 · /unban 이름' };
+  const usage = {
+    status: 400,
+    msg: '사용법: /ban 이름 · /timeout 분 이름 · /unban 이름 · /chatdel all|숫자|이름',
+  };
   let match;
 
   // 차단
@@ -139,6 +160,27 @@ async function runCommand(r, room, adminIp, text) {
     return { status: 200, msg: `${name} 님의 차단/타임아웃을 해제했어요` };
   }
 
+  // 메시지 삭제: all(방 전체) · 숫자(최근 N개) · 이름(그 사람 메시지)
+  if ((match = input.match(/^\/chatdel\s+(.+)$/i))) {
+    const arg = match[1].trim();
+    const raw = await r.lRange('m:' + room, 0, -1);
+    let targets;
+
+    if (/^all$/i.test(arg)) {
+      targets = raw;
+    } else if (/^\d+$/.test(arg)) {
+      const count = parseInt(arg, 10);
+      if (count < 1) return usage;
+      targets = raw.slice(-count);
+    } else {
+      const name = cleanName(arg).toLowerCase();
+      targets = raw.filter(s => (parseMessage(s) || {}).name?.toLowerCase() === name);
+    }
+
+    const removed = await removeMessages(r, room, targets);
+    return { status: 200, msg: removed ? `메시지 ${removed}개를 삭제했어요` : '삭제할 메시지가 없어요' };
+  }
+
   return usage;
 }
 
@@ -174,11 +216,39 @@ async function handleGet(r, req, res) {
   const since = parseInt(req.query.since, 10) || 0;
   if (!isValidRoom(room)) return res.status(400).json({ error: 'bad-room' });
 
-  const raw = await r.lRange('m:' + room, -100, -1);
-  const msgs = raw
-    .map(s => { try { return JSON.parse(s); } catch { return null; } })
-    .filter(m => m && m.id > since);
-  return res.status(200).json({ msgs });
+  // 삭제 횟수를 먼저 읽어야 목록이 더 최신이어도 다음 요청에서 다시 맞춰짐
+  const rev = parseInt(await r.get('rv:' + room), 10) || 0;
+  const all = (await r.lRange('m:' + room, -100, -1)).map(parseMessage).filter(Boolean);
+
+  // 보낸 사람 해시(h)는 내려주지 않음
+  const msgs = all.filter(m => m.id > since).map(({ h, ...rest }) => rest);
+  const out = { msgs, rev };
+
+  // 삭제가 있었으면 남아 있는 메시지 목록을 같이 보내서 클라이언트가 정리
+  if (String(req.query.rev) !== String(rev)) {
+    out.cids = all.map(m => m.cid);
+    out.from = all.length ? all[0].id : 0;
+  }
+  return res.status(200).json(out);
+}
+
+
+// -- POST: 내 메시지 삭제 (보낸 사람 확인은 IP 해시, 관리자 메시지는 관리자만)
+async function handleDelete(r, res, body, ip) {
+  if (!isValidRoom(body.room)) return res.status(400).json({ error: 'bad-room' });
+  const cid = String(body.cid || '').replace(/[^a-z0-9]/gi, '').slice(0, 24);
+  if (!cid) return res.status(400).json({ error: 'bad-request' });
+
+  const raw = (await r.lRange('m:' + body.room, 0, -1)).find(s => (parseMessage(s) || {}).cid === cid);
+  if (!raw) return res.status(404).json({ error: 'not-found' });
+
+  const msg = parseMessage(raw);
+  const admin = isAdmin(body.key);
+  const isOwner = msg.h && msg.h === ownerHash(ip);
+  if (!admin && (!isOwner || msg.admin)) return res.status(403).json({ error: 'forbidden' });
+
+  await removeMessages(r, body.room, [raw]);
+  return res.status(200).json({ ok: true });
 }
 
 
@@ -238,7 +308,7 @@ async function handleSend(r, res, body, ip) {
   }
 
   const id = await r.incr('s:' + room);
-  const msg = { id, cid, name, morse, lang, t: Date.now() };
+  const msg = { id, cid, name, morse, lang, t: Date.now(), h: ownerHash(ip) };
   if (admin) msg.admin = true;
 
   const tx = r.multi()
@@ -262,6 +332,7 @@ async function handlePost(r, req, res) {
 
   if (body.action === 'auth') return handleAuth(r, res, body, ip);
   if (body.action === 'cmd') return handleCommand(r, res, body, ip);
+  if (body.action === 'del') return handleDelete(r, res, body, ip);
   return handleSend(r, res, body, ip);
 }
 
