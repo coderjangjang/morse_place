@@ -7,7 +7,7 @@
 <title>Morse</title>
 
 <style>
-/* -- 기본 색상 */
+/* 기본 색상 */
 :root {
   --bg: #fafaf9;
   --fg: #171717;
@@ -22,7 +22,7 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* -- 테마: 시스템(속성 없음) / light / dark / terminal / sepia */
+/* 테마: 시스템(속성 없음) / light / dark / terminal / sepia */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
     --bg: #101010; --fg: #f1f1ee; --mute: #7d7d78;
@@ -42,14 +42,14 @@
   --line: #e0d4b8; --card: #fbf5e6; --acc: #3b2f20; --accfg: #fbf5e6;
 }
 
-/* -- 강조 색 (테마보다 뒤에 있어야 덮어씀) */
+/* 강조 색 (테마보다 뒤에 있어야 덮어씀) */
 :root[data-accent="blue"]   { --acc: #2563eb; --accfg: #fff; }
 :root[data-accent="green"]  { --acc: #16a34a; --accfg: #fff; }
 :root[data-accent="amber"]  { --acc: #d97706; --accfg: #fff; }
 :root[data-accent="rose"]   { --acc: #e11d48; --accfg: #fff; }
 :root[data-accent="purple"] { --acc: #7c3aed; --accfg: #fff; }
 
-/* -- 레이아웃 */
+/* 레이아웃 */
 * {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
@@ -74,7 +74,7 @@ body {
   padding: 0 20px;
 }
 
-/* -- 헤더 */
+/* 헤더 */
 header {
   display: flex;
   justify-content: space-between;
@@ -115,7 +115,7 @@ h1 {
   color: var(--bad);
 }
 
-/* -- 메시지 목록 */
+/* 메시지 목록 */
 #feed {
   flex: 1;
   display: flex;
@@ -128,7 +128,7 @@ h1 {
   font-size: calc(15px * var(--z, 1));
 }
 
-/* -- 스크롤바 */
+/* 스크롤바 */
 #feed, .panel {
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--mute) 45%, transparent) transparent;
@@ -221,7 +221,7 @@ h1 {
   opacity: 1;
 }
 
-/* -- 입력 영역 */
+/* 입력 영역 */
 .composer {
   padding: 10px 0 16px;
   border-top: 1px solid var(--line);
@@ -264,7 +264,7 @@ h1 {
   text-align: center;
 }
 
-/* -- 폼 요소 */
+/* 폼 요소 */
 input {
   flex: 1;
   min-width: 0;
@@ -298,7 +298,7 @@ button:disabled {
   cursor: default;
 }
 
-/* -- 탭 키 */
+/* 탭 키 */
 .tap-key {
   width: 100%;
   margin-top: 8px;
@@ -316,7 +316,7 @@ button:disabled {
   color: var(--accfg);
 }
 
-/* -- 설정 시트 */
+/* 설정 시트 */
 #sheet {
   position: fixed;
   inset: 0;
@@ -366,7 +366,7 @@ button:disabled {
   text-transform: uppercase;
 }
 
-/* -- 설정 항목 */
+/* 설정 항목 */
 .item {
   display: flex;
   justify-content: space-between;
@@ -414,7 +414,7 @@ button:disabled {
   color: var(--bad);
 }
 
-/* -- 스위치 */
+/* 스위치 */
 .switch {
   position: relative;
   flex: none;
@@ -445,7 +445,7 @@ button:disabled {
   background: var(--accfg);
 }
 
-/* -- 선택 버튼 · 색상 */
+/* 선택 버튼 · 색상 */
 .segmented {
   display: flex;
   overflow: hidden;
@@ -489,7 +489,7 @@ button:disabled {
 </head>
 
 <body>
-<!-- -- 앱 화면 -->
+<!-- 앱 화면 -->
 <div class="app">
   <header>
     <h1>Morse</h1>
@@ -525,7 +525,7 @@ button:disabled {
   </div>
 </div>
 
-<!-- -- 설정 시트 -->
+<!-- 설정 시트 -->
 <div id="sheet">
   <div class="panel">
     <div class="panel-head">
@@ -537,7 +537,7 @@ button:disabled {
 </div>
 
 <script>
-// -- 모스 부호 표
+// 모스 부호 표
 const MORSE_EN = {
   A: '.-',   B: '-...', C: '-.-.', D: '-..',  E: '.',    F: '..-.',
   G: '--.',  H: '....', I: '..',   J: '.---', K: '-.-',  L: '.-..',
@@ -580,7 +580,7 @@ const LANG_INFO = {
 };
 
 
-// -- 한글 분해 · 조합
+// 한글 분해 · 조합
 const HANGUL_START = 0xAC00;
 const HANGUL_END = 0xD7A3;
 const INITIALS = [...'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ'];
@@ -668,7 +668,7 @@ function assembleHangul(units) {
 }
 
 
-// -- 인코딩 · 디코딩
+// 인코딩 · 디코딩
 // 글자는 ' ', 단어는 ' / '로 구분
 const encode = (text, lang) =>
   text.toUpperCase().split(/\s+/).filter(Boolean)
@@ -696,7 +696,7 @@ function countUnsupported(text, lang) {
 const sanitizeMorse = s => s.replace(/[^.\-\/ ]/g, '').replace(/[ /]+$/, '').trim().slice(0, 400);
 
 
-// -- 요소 · 공통 도구
+// 요소 · 공통 도구
 const byId = id => document.getElementById(id);
 const roomBtn = byId('roomBtn'), statusDot = byId('statusDot'), settingsBtn = byId('settingsBtn');
 const notice = byId('notice'), feed = byId('feed');
@@ -728,7 +728,7 @@ const store = {
 };
 
 
-// -- 설정
+// 설정
 const DEFAULT_SETTINGS = {
   name: '',
   lang: 'en',
@@ -784,7 +784,7 @@ function setSetting(key, value) {
 }
 
 
-// -- 방 · 초대 링크
+// 방 · 초대 링크
 const cleanRoom = s => (s || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 32);
 const room = cleanRoom(new URLSearchParams(location.search).get('r')) || 'lobby';
 roomBtn.textContent = '#' + room;
@@ -805,7 +805,7 @@ async function copyLink(btn) {
 roomBtn.onclick = e => copyLink(e.currentTarget);
 
 
-// -- 설정 적용
+// 설정 적용
 function applyTheme() {
   const root = document.documentElement;
   settings.theme === 'system' ? root.removeAttribute('data-theme') : root.setAttribute('data-theme', settings.theme);
@@ -835,7 +835,7 @@ function applySettings() {
 }
 
 
-// -- 설정 화면 구성
+// 설정 화면 구성
 const SETTINGS_SCHEMA = [
   { title: '표시', items: [
     { key: 'display', type: 'segmented', label: '메시지 보기',
@@ -1067,7 +1067,7 @@ sheet.addEventListener('click', e => { if (e.target === sheet) closeSheet(); });
 addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
 
 
-// -- 입력
+// 입력
 let morse = '';
 
 function renderComposer() {
@@ -1126,7 +1126,7 @@ langBtn.onclick = () => {
 };
 
 
-// -- 오디오
+// 오디오
 const TONE_HZ = 880;
 const TONE_GAIN = 0.07;
 let audioCtx, playbackEndsAt = 0;
@@ -1171,7 +1171,7 @@ function playMorse(code) {
 }
 
 
-// -- 탭 키
+// 탭 키
 let pressStart = 0, letterTimer, wordTimer, keyOsc = null, keyGain;
 
 const cancelGapTimers = () => { clearTimeout(letterTimer); clearTimeout(wordTimer); };
@@ -1250,7 +1250,7 @@ addEventListener('keyup', e => {
 });
 
 
-// -- 메시지 목록
+// 메시지 목록
 const messages = new Map();   // cid → 메시지
 const formatTime = t => {
   const d = new Date(t);
@@ -1340,7 +1340,7 @@ function renderFeed() {
 }
 
 
-// -- 서버 연결
+// 서버 연결
 let connection = 'init';   // init | on | off | local
 let lastId = 0, firstLoad = true, polling = false;
 let deleteRev = '';   // 서버의 삭제 횟수 (바뀌면 삭제된 메시지 정리)
@@ -1404,7 +1404,7 @@ async function poll() {
 }
 
 
-// -- 전송 막힘 (도배 · 타임아웃 · 차단 · 서버 용량)
+// 전송 막힘 (도배 · 타임아웃 · 차단 · 서버 용량)
 let blockedUntil = 0, blockTimer = null, blockReason = '';
 const isBlocked = () => Date.now() < blockedUntil;
 
@@ -1443,7 +1443,7 @@ function tickBlock() {
 }
 
 
-// -- 관리자 명령어 (/ban · /timeout · /unban, 서버가 처리)
+// 관리자 명령어 (/ban · /timeout · /unban, 서버가 처리)
 let cmdResultTimer;
 
 function showCmdResult(text, isError) {
@@ -1467,7 +1467,7 @@ async function runAdminCommand(text) {
 }
 
 
-// -- 메시지 전송
+// 메시지 전송
 const newClientId = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
 async function sendMessage() {
@@ -1521,7 +1521,7 @@ textInput.addEventListener('keydown', e => {
 });
 
 
-// -- 시작
+// 시작
 if (location.protocol === 'file:') setConnection('local');
 setInterval(() => { if (!document.hidden) poll(); }, 1500);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
