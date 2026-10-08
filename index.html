@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#fafaf9">
+<title>Morse</title>
+<style>
+:root{--bg:#fafaf9;--fg:#171717;--mute:#8a8a85;--line:#e7e5e0;--card:#fff;--acc:#171717;--accfg:#fff;--bad:#e5484d;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+/* 테마: 시스템(속성 없음) / light / dark / terminal / sepia */
+@media (prefers-color-scheme:dark){:root:not([data-theme]){--bg:#101010;--fg:#f1f1ee;--mute:#7d7d78;--line:#262624;--card:#181817;--acc:#f1f1ee;--accfg:#101010}}
+:root[data-theme="dark"]{--bg:#101010;--fg:#f1f1ee;--mute:#7d7d78;--line:#262624;--card:#181817;--acc:#f1f1ee;--accfg:#101010}
+:root[data-theme="terminal"]{--bg:#070b07;--fg:#b8f2b8;--mute:#4f8a4f;--line:#173017;--card:#0c150c;--acc:#3fb950;--accfg:#04120a}
+:root[data-theme="sepia"]{--bg:#f4ecd8;--fg:#3b2f20;--mute:#8c7b62;--line:#e0d4b8;--card:#fbf5e6;--acc:#3b2f20;--accfg:#fbf5e6}
+/* 강조 색 (테마 뒤에 있어야 덮어씀) */
+:root[data-accent="blue"]{--acc:#2563eb;--accfg:#fff}
+:root[data-accent="green"]{--acc:#16a34a;--accfg:#fff}
+:root[data-accent="amber"]{--acc:#d97706;--accfg:#fff}
+:root[data-accent="rose"]{--acc:#e11d48;--accfg:#fff}
+:root[data-accent="purple"]{--acc:#7c3aed;--accfg:#fff}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font:15px/1.5 -apple-system,"Pretendard","Noto Sans KR",system-ui,sans-serif;display:flex;justify-content:center}
+.app{width:100%;max-width:560px;height:100%;display:flex;flex-direction:column;padding:0 20px}
+header{display:flex;justify-content:space-between;align-items:center;padding:18px 0 10px;gap:8px}
+h1{font-size:15px;font-weight:600;letter-spacing:.14em;margin:0;text-transform:uppercase}
+.hr{display:flex;align-items:center;gap:6px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--mute)}
+.dot.on{background:#3fb950}.dot.off{background:var(--bad)}
+.chip{padding:5px 10px;font-size:13px;border-radius:999px;color:var(--mute)}
+#note{display:none;font-size:12px;color:var(--bad);padding:0 0 8px}
+#feed{flex:1;overflow-y:auto;padding:8px 0;display:flex;flex-direction:column;gap:14px;overscroll-behavior:contain;font-size:calc(15px*var(--z,1))}
+.empty{margin:auto;color:var(--mute);text-align:center;font-size:14px}
+.msg{max-width:88%;align-self:flex-start}
+.msg.mine{align-self:flex-end;text-align:right}
+.who{font-size:.8em;color:var(--mute);margin-bottom:4px}
+.who .bad{color:var(--bad)}
+.bub{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 14px;cursor:pointer;text-align:left}
+.mine .bub{background:var(--acc);color:var(--accfg);border-color:var(--acc)}
+.msg.pend .bub{opacity:.55}
+.bub:active{opacity:.8}
+.mc{font:1.07em/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em;word-break:break-all}
+.tx{font-size:.87em;opacity:.6;margin-top:2px;word-break:break-word}
+#feed[data-disp="text"] .tx{opacity:1;font-size:1em;margin:0}
+.composer{padding:10px 0 16px;border-top:1px solid var(--line)}
+.prev{min-height:44px;margin-bottom:6px}
+.prev .tx{color:var(--mute);opacity:1;min-height:20px;font-size:13px;margin-top:2px}
+.warn{font-size:12px;color:var(--bad);min-height:0;margin-bottom:6px}
+.warn:empty{display:none}
+.row{display:flex;gap:8px}
+.row.noinp #send{flex:1}
+input{flex:1;min-width:0;background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font:inherit;outline:none}
+input:focus{border-color:var(--mute)}
+button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:12px;padding:12px 14px;cursor:pointer}
+button.pri{background:var(--acc);color:var(--accfg);border-color:var(--acc)}
+button:disabled{opacity:.35;cursor:default}
+.key{margin-top:8px;width:100%;padding:22px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none;color:var(--mute);letter-spacing:.06em;font-size:14px}
+.key.down{background:var(--acc);color:var(--accfg)}
+.hint{margin-top:8px;font-size:12px;color:var(--mute);text-align:center}
+
+/* 설정 시트 */
+#sheet{position:fixed;inset:0;display:none;background:rgba(0,0,0,.45);z-index:10;align-items:flex-end;justify-content:center}
+#sheet.open{display:flex}
+.panel{width:100%;max-width:560px;max-height:88%;overflow-y:auto;background:var(--bg);color:var(--fg);border-radius:20px 20px 0 0;padding:6px 20px calc(24px + env(safe-area-inset-bottom,0px));border:1px solid var(--line);border-bottom:0}
+.ph{position:sticky;top:0;background:var(--bg);display:flex;justify-content:space-between;align-items:center;padding:14px 0 8px;z-index:1}
+.ph b{font-size:16px}
+.ph button{padding:6px 12px;font-size:14px}
+.sh{margin:18px 0 2px;font-size:12px;letter-spacing:.1em;color:var(--mute);text-transform:uppercase}
+.it{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);font-size:14px}
+.it.col{flex-direction:column;align-items:stretch;gap:8px}
+.it .top{display:flex;justify-content:space-between;color:var(--fg)}
+.it .top span:last-child{color:var(--mute)}
+.it input[type=text]{flex:1;padding:8px 10px;border-radius:10px;font-size:14px;text-align:right}
+.it input[type=range]{padding:0;border:0;width:100%;accent-color:var(--acc);background:none}
+.it button.s{padding:8px 12px;font-size:13px;flex:none}
+.sw{width:44px;height:26px;border-radius:999px;padding:0;position:relative;background:var(--line);border:1px solid var(--line);flex:none}
+.sw::after{content:'';position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:var(--mute);transition:left .15s}
+.sw.on{background:var(--acc);border-color:var(--acc)}
+.sw.on::after{left:20px;background:var(--accfg)}
+.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card)}
+.seg button{flex:1;border:0;border-radius:0;padding:8px 10px;font-size:13px;background:transparent;white-space:nowrap}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button.on{background:var(--acc);color:var(--accfg)}
+.sws{display:flex;gap:10px;flex-wrap:wrap}
+.swc{width:34px;height:34px;border-radius:50%;padding:0;border:2px solid var(--line)}
+.swc.on{outline:2px solid var(--fg);outline-offset:2px}
+.rst{margin-top:20px;width:100%;color:var(--bad)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Morse</h1>
+    <div class="hr">
+      <button class="chip" id="rm" title="초대 링크 복사"></button>
+      <span class="dot" id="st"></span>
+      <button class="chip" id="gear" title="설정">⚙ 설정</button>
+    </div>
+  </header>
+  <div id="note"></div>
+  <div id="feed"></div>
+  <div class="composer">
+    <div class="prev" id="prevbox"><div class="mc" id="pm"></div><div class="tx" id="pt"></div></div>
+    <div class="warn" id="pw"></div>
+    <div class="row" id="row">
+      <input id="inp" placeholder="메시지 입력 (영문·숫자)" autocomplete="off" autocapitalize="off" maxlength="120" enterkeyhint="send">
+      <button id="bs" title="한 글자 지우기">⌫</button>
+      <button id="clr" title="전체 지우기">✕</button>
+      <button id="send" class="pri" disabled>전송</button>
+    </div>
+    <button class="key" id="key">탭 키 · 짧게 = · &nbsp; 길게 = −  (스페이스바)</button>
+    <div class="hint" id="hint">메시지를 누르면 소리로 들을 수 있어요</div>
+  </div>
+</div>
+
+<div id="sheet"><div class="panel"><div class="ph"><b>설정</b><button id="sx">닫기</button></div><div id="sbody"></div></div></div>
+
+<script>
+const T={A:'.-',B:'-...',C:'-.-.',D:'-..',E:'.',F:'..-.',G:'--.',H:'....',I:'..',J:'.---',K:'-.-',L:'.-..',M:'--',N:'-.',O:'---',P:'.--.',Q:'--.-',R:'.-.',S:'...',T:'-',U:'..-',V:'...-',W:'.--',X:'-..-',Y:'-.--',Z:'--..',
+0:'-----',1:'.----',2:'..---',3:'...--',4:'....-',5:'.....',6:'-....',7:'--...',8:'---..',9:'----.','.':'.-.-.-',',':'--..--','?':'..--..','!':'-.-.--','/':'-..-.','-':'-....-','@':'.--.-.',':':'---...'};
+const R=Object.fromEntries(Object.entries(T).map(([k,v])=>[v,k]));
+const enc=s=>s.toUpperCase().split(/\s+/).filter(Boolean).map(w=>[...w].map(c=>T[c]).filter(Boolean).join(' ')).filter(Boolean).join(' / ');
+const dec=m=>m.split(' / ').map(w=>w.split(' ').map(c=>c?(R[c]||'·'):'').join('')).join(' ');
+const $=id=>document.getElementById(id);
+const inp=$('inp'),pm=$('pm'),pt=$('pt'),pw=$('pw'),send=$('send'),feed=$('feed'),key=$('key');
+
+/* ---------- 설정 저장소 ---------- */
+const store={get(k,d){try{return localStorage.getItem(k)??d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+const DEF={name:'',disp:'both',who:1,time:1,prev:'both',hint:1,size:'1',
+ showInp:1,showKey:1,enter:1,space:1,
+ dashMs:220,autoGap:1,letterMs:650,wordMs:1700,keySnd:1,
+ wpm:15,auto:1,
+ theme:'system',accent:'default'};
+let S={...DEF};
+try{Object.assign(S,JSON.parse(store.get('mc-set','{}')))}catch(e){}
+if(!S.name)S.name=store.get('mc-name','')||('OP-'+Math.floor(100+Math.random()*900));
+const save=()=>store.set('mc-set',JSON.stringify(S));
+save();
+let me=S.name;
+const U=()=>1200/S.wpm; // ms (15wpm = 80ms)
+
+const cleanRoom=s=>(s||'').toLowerCase().replace(/[^a-z0-9-]/g,'').slice(0,32);
+const room=cleanRoom(new URLSearchParams(location.search).get('r'))||'lobby';
+$('rm').textContent='#'+room;
+async function copyLink(btn){const u=location.origin+location.pathname+'?r='+room;
+ try{await navigator.clipboard.writeText(u)}catch(e){prompt('링크를 복사하세요',u);return}
+ const b=btn&&btn.tagName?btn:$('rm'),o=b.textContent;b.textContent='복사됨 ✓';setTimeout(()=>b.textContent=o,1200)}
+$('rm').onclick=e=>copyLink(e.currentTarget);
+
+/* ---------- 적용 ---------- */
+function applyTheme(){
+ const r=document.documentElement;
+ S.theme==='system'?r.removeAttribute('data-theme'):r.setAttribute('data-theme',S.theme);
+ S.accent==='default'?r.removeAttribute('data-accent'):r.setAttribute('data-accent',S.accent);
+ r.style.setProperty('--z',S.size);
+ const m=document.querySelector('meta[name=theme-color]');
+ if(m)m.content=getComputedStyle(r).getPropertyValue('--bg').trim()||'#fafaf9'}
+matchMedia('(prefers-color-scheme:dark)').addEventListener?.('change',applyTheme);
+function apply(){
+ applyTheme();me=S.name;
+ inp.style.display=S.showInp?'':'none';
+ $('row').classList.toggle('noinp',!S.showInp);
+ key.style.display=S.showKey?'':'none';
+ $('hint').style.display=S.hint?'':'none';
+ feed.dataset.disp=S.disp;
+ draw();render()}
+
+/* ---------- 설정 화면 ---------- */
+const SCHEMA=[
+ {t:'표시',items:[
+  {k:'disp',type:'seg',label:'메시지 보기',opts:[['both','둘 다'],['text','텍스트만'],['morse','모스부호만']]},
+  {k:'prev',type:'seg',label:'입력 미리보기',opts:[['both','둘 다'],['text','텍스트'],['morse','모스'],['off','끄기']]},
+  {k:'who',type:'sw',label:'보낸 사람 이름 표시'},
+  {k:'time',type:'sw',label:'시간 표시'},
+  {k:'hint',type:'sw',label:'하단 안내 문구'},
+  {k:'size',type:'seg',label:'메시지 글자 크기',opts:[['.9','작게'],['1','보통'],['1.15','크게'],['1.3','아주 크게']]},
+ ]},
+ {t:'입력 방식',items:[
+  {k:'showInp',type:'sw',label:'텍스트 입력창'},
+  {k:'showKey',type:'sw',label:'탭 키 버튼'},
+  {k:'enter',type:'sw',label:'Enter로 전송'},
+  {k:'space',type:'sw',label:'스페이스바를 탭 키로 사용'},
+ ]},
+ {t:'탭 키',items:[
+  {k:'dashMs',type:'range',label:'길게 누름 기준 (이보다 짧으면 점)',min:100,max:500,step:10,unit:' ms'},
+  {k:'autoGap',type:'sw',label:'글자·단어 자동 띄우기'},
+  {k:'letterMs',type:'range',label:'글자 구분 대기 시간',min:300,max:1500,step:50,unit:' ms'},
+  {k:'wordMs',type:'range',label:'단어 구분 대기 시간',min:800,max:3500,step:100,unit:' ms'},
+  {k:'keySnd',type:'sw',label:'누르는 동안 소리'},
+ ]},
+ {t:'소리',items:[
+  {k:'wpm',type:'range',label:'재생 속도',min:5,max:30,step:1,unit:' WPM'},
+  {k:'auto',type:'sw',label:'새 메시지 자동 재생'},
+ ]},
+ {t:'테마',items:[
+  {k:'theme',type:'seg',label:'화면 모드',opts:[['system','시스템'],['light','라이트'],['dark','다크'],['terminal','터미널'],['sepia','세피아']]},
+  {k:'accent',type:'swatch',label:'강조 색',opts:[
+   ['default','기본','linear-gradient(135deg,#171717 50%,#f1f1ee 50%)'],['blue','파랑','#2563eb'],['green','초록','#16a34a'],['amber','주황','#d97706'],['rose','빨강','#e11d48'],['purple','보라','#7c3aed']]},
+ ]},
+];
+const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
+function set(k,v){
+ S[k]=v;
+ if(!S.showInp&&!S.showKey){S[k==='showInp'?'showKey':'showInp']=1;save();apply();build();return}
+ save();apply();
+ if(k==='autoGap')build()}
+function row(it){
+ const d=el('div','it'),k=it.k;
+ if(it.type==='sw'){
+  d.append(el('span','',it.label));
+  const b=el('button','sw'+(S[k]?' on':''));b.setAttribute('role','switch');b.setAttribute('aria-checked',!!S[k]);
+  b.onclick=()=>set(k,S[k]?0:1);d.append(b)}
+ else if(it.type==='seg'){
+  const g=el('div','seg');
+  if(it.opts.length>3){d.classList.add('col');d.append(el('span','',it.label),g)}else{d.append(el('span','',it.label),g)}
+  for(const[o,n]of it.opts){const b=el('button',String(S[k])===o?'on':'',n);
+   b.onclick=()=>{set(k,o);[...g.children].forEach(x=>x.classList.toggle('on',x===b))};g.append(b)}}
+ else if(it.type==='range'){
+  d.classList.add('col');
+  const top=el('div','top'),v=el('span','',S[k]+it.unit);top.append(el('span','',it.label),v);
+  const r=el('input');r.type='range';r.min=it.min;r.max=it.max;r.step=it.step;r.value=S[k];
+  r.oninput=()=>{v.textContent=r.value+it.unit;set(k,+r.value)};d.append(top,r);
+  if((k==='letterMs'||k==='wordMs')&&!S.autoGap){d.style.opacity='.4';r.disabled=true}}
+ else if(it.type==='swatch'){
+  d.classList.add('col');d.append(el('span','',it.label));
+  const g=el('div','sws');
+  for(const[o,n,c]of it.opts){const b=el('button','swc'+(S[k]===o?' on':''));b.style.background=c;b.title=n;b.setAttribute('aria-label',n);
+   b.onclick=()=>{set(k,o);[...g.children].forEach(x=>x.classList.toggle('on',x===b))};g.append(b)}
+  d.append(g)}
+ return d}
+function build(){
+ const body=$('sbody'),sc=document.querySelector('.panel').scrollTop;body.textContent='';
+ body.append(el('div','sh','계정 · 방'));
+ let d=el('div','it');d.append(el('span','','이름'));
+ const ni=el('input');ni.type='text';ni.maxLength=12;ni.value=S.name;ni.autocomplete='off';
+ ni.onchange=()=>{const v=ni.value.trim().slice(0,12);if(v){S.name=v;save();apply()}else ni.value=S.name};d.append(ni);body.append(d);
+ d=el('div','it');d.append(el('span','','방'));
+ const ri=el('input');ri.type='text';ri.maxLength=32;ri.value=room;ri.placeholder='영문·숫자·-';ri.autocomplete='off';ri.style.textAlign='right';
+ const go=el('button','s','이동');
+ const doGo=()=>{const r=cleanRoom(ri.value);if(r&&r!==room)location.search='?r='+r};
+ go.onclick=doGo;ri.onkeydown=e=>{if(e.key==='Enter')doGo()};d.append(ri,go);body.append(d);
+ d=el('div','it');d.append(el('span','','초대 링크'));
+ const cp=el('button','s','복사');cp.onclick=()=>copyLink(cp);d.append(cp);body.append(d);
+ for(const sec of SCHEMA){body.append(el('div','sh',sec.t));for(const it of sec.items)body.append(row(it))}
+ const rs=el('button','rst','설정 초기화');
+ rs.onclick=()=>{if(confirm('모든 설정을 기본값으로 되돌릴까요? (이름은 유지)')){S={...DEF,name:S.name};save();apply();build()}};
+ body.append(rs);
+ document.querySelector('.panel').scrollTop=sc}
+const sheet=$('sheet');
+const openS=()=>{build();sheet.classList.add('open')},closeS=()=>sheet.classList.remove('open');
+$('gear').onclick=openS;$('sx').onclick=closeS;
+sheet.addEventListener('click',e=>{if(e.target===sheet)closeS()});
+addEventListener('keydown',e=>{if(e.key==='Escape')closeS()});
+
+/* ---------- 입력 ---------- */
+let morse='';
+function render(){
+ const p=S.prev;
+ $('prevbox').style.display=p==='off'?'none':'';
+ pm.style.display=p==='text'?'none':'';pt.style.display=p==='morse'?'none':'';
+ pm.textContent=morse;pt.textContent=morse?dec(morse):'';send.disabled=!morse.trim();
+ const skip=[...inp.value.toUpperCase()].filter(c=>c.trim()&&!T[c]).length;
+ pw.textContent=skip?`지원하지 않는 문자 ${skip}개는 제외돼요 (영문·숫자·.,?!/-@:)`:''}
+inp.addEventListener('input',()=>{stopT();morse=enc(inp.value);render()});
+$('clr').onclick=()=>{stopT();morse='';inp.value='';render();if(S.showInp)inp.focus()};
+$('bs').onclick=()=>{stopT();const m=morse.replace(/[ /]+$/,'');const i=m.lastIndexOf(' ');
+ morse=i<0?'':m.slice(0,i)+' ';inp.value=dec(morse).replace(/·/g,'').trimEnd();render()};
+
+/* ---------- 오디오 ---------- */
+let ac,playEnd=0;const F=880,G=.07;
+function ctx(){try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();if(ac.state!=='running')ac.resume()}catch(e){}}
+function tone(t,d){const o=ac.createOscillator(),g=ac.createGain();o.type='square';o.frequency.value=F;o.connect(g);g.connect(ac.destination);
+ g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(G,t+.004);g.gain.setValueAtTime(G,t+d-.004);g.gain.linearRampToValueAtTime(0,t+d);o.start(t);o.stop(t+d+.01)}
+function play(m){try{ctx();const u=U()/1000;let t=Math.max(ac.currentTime+.05,playEnd);
+ for(const c of m){if(c==='.'){tone(t,u);t+=2*u}else if(c==='-'){tone(t,3*u);t+=4*u}else if(c===' '||c==='/')t+=2*u}
+ playEnd=t+.4}catch(e){}}
+addEventListener('pointerdown',ctx,{passive:true});
+
+/* ---------- 탭 키 ---------- */
+let down=0,tG,tW,osc=null,gn;
+function stopT(){clearTimeout(tG);clearTimeout(tW)}
+function kd(){if(down)return;down=performance.now();key.classList.add('down');stopT();ctx();
+ if(S.keySnd)try{osc=ac.createOscillator();gn=ac.createGain();osc.type='square';osc.frequency.value=F;gn.gain.value=G;osc.connect(gn);gn.connect(ac.destination);osc.start()}catch(e){osc=null}}
+function ku(){if(!down)return;const d=performance.now()-down;down=0;key.classList.remove('down');
+ try{osc&&osc.stop()}catch(e){}osc=null;
+ morse+=d<S.dashMs?'.':'-';inp.value=dec(morse).replace(/·/g,'');render();
+ if(S.autoGap){
+  tG=setTimeout(()=>{if(morse&&!/ $/.test(morse)){morse+=' ';render()}},S.letterMs);
+  tW=setTimeout(()=>{morse=morse.trimEnd()+' / ';render()},Math.max(S.wordMs,S.letterMs+300))}}
+key.addEventListener('pointerdown',e=>{e.preventDefault();key.setPointerCapture(e.pointerId);kd()});
+key.addEventListener('pointerup',ku);key.addEventListener('pointercancel',ku);
+key.addEventListener('contextmenu',e=>e.preventDefault());
+const typing=()=>/INPUT|TEXTAREA/.test(document.activeElement.tagName)||sheet.classList.contains('open');
+addEventListener('keydown',e=>{if(S.space&&e.code==='Space'&&!typing()){e.preventDefault();if(!e.repeat)kd()}});
+addEventListener('keyup',e=>{if(S.space&&e.code==='Space'&&!typing())ku()});
+
+/* ---------- 메시지 ---------- */
+const msgs=new Map();
+let since=0,mode='init',first=true,busy=0;
+const API='/api/messages';
+const hm=t=>{const d=new Date(t);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')};
+function draw(){
+ const arr=[...msgs.values()].sort((a,b)=>a.t-b.t).slice(-100);
+ if(!arr.length){feed.innerHTML='<div class="empty">텍스트를 입력하거나 키를 눌러<br>모스부호로 대화해 보세요.</div>';return}
+ const stick=feed.scrollHeight-feed.scrollTop-feed.clientHeight<80||feed.querySelector('.empty');
+ feed.textContent='';
+ for(const m of arr){
+  const mine=m.name===me;
+  const d=el('div','msg'+(mine?' mine':'')+(m.pending?' pend':''));
+  const meta=[];if(S.who&&!mine)meta.push(m.name);if(S.time)meta.push(hm(m.t));
+  if(meta.length||m.failed){const w=el('div','who',meta.join(' · '));
+   if(m.failed)w.append(el('span','bad',(meta.length?' · ':'')+'전송 실패'));d.append(w)}
+  const b=el('div','bub');
+  if(S.disp!=='text')b.append(el('div','mc',m.morse));
+  if(S.disp!=='morse')b.append(el('div','tx',dec(m.morse)));
+  b.onclick=()=>play(m.morse);d.append(b);feed.append(d)}
+ if(stick)feed.scrollTop=feed.scrollHeight}
+
+function setMode(m){mode=m;const s=$('st'),n=$('note');
+ s.className='dot'+(m==='on'?' on':m==='off'?' off':'');
+ n.style.display=(m==='local'||m==='off')?'block':'none';
+ n.textContent=m==='local'?'공유 서버가 연결되지 않아 이 기기에서만 보여요.':m==='off'?'연결이 불안정해요. 다시 시도하는 중…':''}
+
+function ingest(arr){let changed=false;
+ for(const m of arr){if(m.id>since)since=m.id;
+  const had=msgs.has(m.cid);
+  msgs.set(m.cid,m);changed=true;
+  if(!had&&!first&&S.auto&&m.name!==me)play(m.morse)}
+ first=false;if(changed)draw()}
+
+async function poll(){
+ if(busy||mode==='local')return;busy=1;
+ try{
+  const r=await fetch(`${API}?room=${room}&since=${since}`,{cache:'no-store'});
+  if(r.status===404||r.status===503){setMode('local');return}
+  if(!r.ok)throw 0;
+  const j=await r.json();setMode('on');ingest(j.msgs||[]);
+ }catch(e){setMode(location.protocol==='file:'?'local':'off')}
+ finally{busy=0}}
+
+async function doSend(){
+ const m=morse.replace(/[^.\-\/ ]/g,'').replace(/[ /]+$/,'').trim().slice(0,400);if(!m)return;
+ const msg={cid:Math.random().toString(36).slice(2,10)+Date.now().toString(36),name:me,morse:m,t:Date.now(),pending:1};
+ stopT();morse='';inp.value='';render();
+ msgs.set(msg.cid,msg);draw();
+ if(mode==='local'){msg.pending=0;draw();return}
+ try{
+  const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({room,name:me,morse:m,cid:msg.cid})});
+  if(r.status===404||r.status===503){setMode('local');msg.pending=0;draw();return}
+  if(!r.ok)throw 0;
+  msg.pending=0;poll();
+ }catch(e){msg.pending=0;msg.failed=1;draw()}}
+send.onclick=doSend;
+inp.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing&&S.enter)doSend()});
+
+if(location.protocol==='file:')setMode('local');
+setInterval(()=>{if(!document.hidden)poll()},1500);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)poll()});
+apply();poll();
+</script>
+</body>
+</html>
