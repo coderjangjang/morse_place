@@ -95,6 +95,10 @@ h1 {
   align-items: center;
   gap: 6px;
 }
+.online {
+  font-size: 12px;
+  color: var(--mute);
+}
 .dot {
   width: 7px;
   height: 7px;
@@ -116,9 +120,37 @@ h1 {
   color: var(--bad);
 }
 
+/* 방 상태 (공지 · 닫힘 · 슬로우 모드) */
+#roomBar {
+  display: none;
+  padding: 0 0 8px;
+  font-size: 12px;
+}
+.room-notice {
+  margin-bottom: 4px;
+  padding: 6px 10px;
+  border-left: 3px solid var(--acc);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--fg);
+  word-break: break-word;
+}
+.room-flag {
+  margin-bottom: 2px;
+  color: var(--bad);
+}
+
 /* 메시지 목록 */
+.feed-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
 #feed {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -127,6 +159,20 @@ h1 {
   overflow-y: auto;
   overscroll-behavior: contain;
   font-size: calc(15px * var(--z, 1));
+}
+#newBtn {
+  display: none;
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border-radius: 999px;
+  border-color: var(--acc);
+  background: var(--acc);
+  color: var(--accfg);
+  font-size: 13px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .2);
 }
 
 /* 스크롤바 */
@@ -195,6 +241,8 @@ h1 {
   background: var(--acc);
   color: var(--accfg);
   border-color: var(--acc);
+}
+.msg.deletable .bubble {
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;   /* 꾹 누르기 = 삭제 */
@@ -210,6 +258,10 @@ h1 {
   letter-spacing: .12em;
   word-break: break-all;
 }
+.morse .lit {                  /* 재생 중인 부호 */
+  color: var(--bad);
+  font-weight: 700;
+}
 .text {
   margin-top: 2px;
   font-size: .87em;
@@ -220,6 +272,20 @@ h1 {
   margin: 0;
   font-size: 1em;
   opacity: 1;
+}
+
+/* 입력 중 표시 */
+.typing {
+  min-height: 22px;
+  padding: 2px 0;
+  font-size: 12px;
+  color: var(--mute);
+}
+.typing.on {
+  animation: blink 1.4s ease-in-out infinite;
+}
+@keyframes blink {
+  50% { opacity: .45; }
 }
 
 /* 입력 영역 */
@@ -245,6 +311,9 @@ h1 {
 }
 .warn:empty {
   display: none;
+}
+#cmdResult {
+  white-space: pre-line;
 }
 .row {
   display: flex;
@@ -279,6 +348,9 @@ input {
 }
 input:focus {
   border-color: var(--mute);
+}
+input:disabled {
+  opacity: .5;
 }
 button {
   padding: 12px 14px;
@@ -415,6 +487,38 @@ button:disabled {
   color: var(--bad);
 }
 
+/* 모스부호 표 */
+.chart summary {
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+  cursor: pointer;
+}
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 8px;
+  padding: 12px 0 4px;
+}
+.chart-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px;
+  border-radius: 10px;
+}
+.chart-cell span {
+  font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .1em;
+  color: var(--mute);
+}
+.chart-note {
+  padding: 6px 0 2px;
+  font-size: 12px;
+  color: var(--mute);
+}
+
 /* 스위치 */
 .switch {
   position: relative;
@@ -495,6 +599,7 @@ button:disabled {
   <header>
     <h1>Morse</h1>
     <div class="header-right">
+      <span class="online" id="online"></span>
       <button class="chip" id="roomBtn" title="초대 링크 복사"></button>
       <span class="dot" id="statusDot"></span>
       <button class="chip" id="settingsBtn" title="설정">설정</button>
@@ -502,7 +607,13 @@ button:disabled {
   </header>
 
   <div id="notice"></div>
-  <div id="feed"></div>
+  <div id="roomBar"></div>
+
+  <div class="feed-wrap">
+    <div id="feed"></div>
+    <button id="newBtn">새 메시지 ↓</button>
+  </div>
+  <div class="typing" id="typingLine"></div>
 
   <div class="composer">
     <div class="preview" id="previewBox">
@@ -700,7 +811,8 @@ const sanitizeMorse = s => s.replace(/[^.\-\/ ]/g, '').replace(/[ /]+$/, '').tri
 // 요소 · 공통 도구
 const byId = id => document.getElementById(id);
 const roomBtn = byId('roomBtn'), statusDot = byId('statusDot'), settingsBtn = byId('settingsBtn');
-const notice = byId('notice'), feed = byId('feed');
+const notice = byId('notice'), roomBar = byId('roomBar'), onlineEl = byId('online');
+const feed = byId('feed'), newBtn = byId('newBtn'), typingLine = byId('typingLine');
 const previewBox = byId('previewBox'), previewMorse = byId('previewMorse'), previewText = byId('previewText');
 const charWarn = byId('charWarn'), blockMsg = byId('blockMsg'), cmdResult = byId('cmdResult');
 const inputRow = byId('inputRow'), langBtn = byId('langBtn'), textInput = byId('textInput');
@@ -728,6 +840,16 @@ const store = {
   set(key, value)    { try { localStorage.setItem(key, value); } catch (e) {} },
 };
 
+// 이 기기의 고유 ID (내 메시지 판별 · 입력 중 표시에 사용)
+const uid = (() => {
+  let id = store.get('mc-uid', '');
+  if (!/^[a-z0-9]{16,32}$/.test(id)) {
+    id = Array.from(crypto.getRandomValues(new Uint8Array(12)), b => b.toString(36).padStart(2, '0')).join('');
+    store.set('mc-uid', id);
+  }
+  return id;
+})();
+
 
 // 설정
 const DEFAULT_SETTINGS = {
@@ -735,6 +857,7 @@ const DEFAULT_SETTINGS = {
   lang: 'en',
   // 표시
   display: 'both', preview: 'both', showName: 1, showTime: 1, showHint: 1, textScale: '1',
+  typing: 1, highlight: 1,
   // 입력 방식
   showInput: 1, showTapKey: 1, enterToSend: 1, spaceToTap: 1,
   // 탭 키
@@ -761,14 +884,22 @@ try {
 if (!CODE_TABLE[settings.lang]) settings.lang = 'en';
 if (!settings.name) settings.name = store.get('mc-name', '') || 'OP-' + Math.floor(100 + Math.random() * 900);
 
+// 관리자 토큰 (예전 버전에 저장된 평문 비밀번호는 여기서 지움)
 let adminKey = store.get('mc-key', '');
+if (!/^[a-f0-9]{48}$/.test(adminKey)) { adminKey = ''; store.set('mc-key', ''); }
+
 const saveSettings = () => store.set('mc-set', JSON.stringify(settings));
 const dotMs = () => 1200 / settings.wpm; // 15 WPM = 80ms
 saveSettings();
 
+// 방 상태 (서버가 폴링 때마다 알려줌)
+let roomState = { closed: false, slow: 0, notice: '' };
+const isLocked = () => roomState.closed && !adminKey;   // 닫힌 방에서는 관리자만 보낼 수 있음
+
 function setSetting(key, value) {
   settings[key] = value;
   if (key === 'lang') clearDraft();
+  if (key === 'typing' && !value) stopTyping();
 
   // 입력창과 탭 키가 둘 다 꺼지지 않게 보정
   if (!settings.showInput && !settings.showTapKey) {
@@ -781,7 +912,7 @@ function setSetting(key, value) {
 
   saveSettings();
   applySettings();
-  if (key === 'autoGap') buildSheet();
+  if (key === 'autoGap' || key === 'lang') buildSheet();
 }
 
 
@@ -821,9 +952,7 @@ matchMedia('(prefers-color-scheme:dark)').addEventListener?.('change', applyThem
 function applySettings() {
   applyTheme();
 
-  const lang = LANG_INFO[settings.lang];
-  langBtn.textContent = lang.label;
-  textInput.placeholder = lang.placeholder;
+  langBtn.textContent = LANG_INFO[settings.lang].label;
 
   textInput.style.display = settings.showInput ? '' : 'none';
   inputRow.classList.toggle('no-input', !settings.showInput);
@@ -832,7 +961,45 @@ function applySettings() {
   feed.dataset.display = settings.display;
 
   renderFeed();
+  applyLock();
+  if (!settings.typing) renderTyping([]);
+}
+
+
+// 방 상태 표시 · 입력 잠금
+function renderRoomBar() {
+  roomBar.textContent = '';
+  if (roomState.notice) roomBar.append(makeEl('div', 'room-notice', '공지  ' + roomState.notice));
+  if (roomState.closed) {
+    roomBar.append(makeEl('div', 'room-flag', adminKey
+      ? '채팅이 닫혀 있어요 (관리자는 보낼 수 있어요)'
+      : '관리자가 채팅을 닫았어요. 다시 열릴 때까지 메시지를 보낼 수 없어요.'));
+  }
+  if (roomState.slow) roomBar.append(makeEl('div', 'room-flag', `슬로우 모드: ${roomState.slow}초에 한 번 보낼 수 있어요`));
+  roomBar.style.display = roomBar.children.length ? 'block' : 'none';
+}
+
+function applyLock() {
+  const locked = isLocked();
+  for (const el of [textInput, backspaceBtn, clearBtn, langBtn, tapKey]) el.disabled = locked;
+  textInput.placeholder = locked ? '채팅이 닫혀 있어요' : LANG_INFO[settings.lang].placeholder;
+  if (locked) resetKey();
   renderComposer();
+}
+
+function applyRoomState(next) {
+  const wasLocked = isLocked();
+  roomState = { closed: !!next.closed, slow: next.slow | 0, notice: next.notice || '' };
+  renderRoomBar();
+  if (!wasLocked && isLocked()) clearDraft();   // 닫히는 순간 쓰던 내용은 비움
+  applyLock();
+}
+
+// 로그인 · 로그아웃 후 화면 갱신
+function refreshRoomUi() {
+  renderRoomBar();
+  applyLock();
+  renderFeed();
 }
 
 
@@ -846,6 +1013,7 @@ const SETTINGS_SCHEMA = [
     { key: 'showName', type: 'switch', label: '보낸 사람 이름 표시' },
     { key: 'showTime', type: 'switch', label: '시간 표시' },
     { key: 'showHint', type: 'switch', label: '하단 안내 문구' },
+    { key: 'typing', type: 'switch', label: '입력 중 표시 (내 상태도 공유)' },
     { key: 'textScale', type: 'segmented', label: '메시지 글자 크기',
       options: [['.9', '작게'], ['1', '보통'], ['1.15', '크게'], ['1.3', '아주 크게']] },
   ]},
@@ -867,6 +1035,7 @@ const SETTINGS_SCHEMA = [
   { title: '소리', items: [
     { key: 'wpm', type: 'range', label: '재생 속도', min: 5, max: 30, step: 1, unit: ' WPM' },
     { key: 'autoPlay', type: 'switch', label: '새 메시지 자동 재생' },
+    { key: 'highlight', type: 'switch', label: '재생 중 부호 강조' },
   ]},
   { title: '테마', items: [
     { key: 'theme', type: 'segmented', label: '화면 모드',
@@ -1003,7 +1172,13 @@ function buildAdminRows() {
   // 로그인 상태
   if (adminKey) {
     const logoutBtn = makeEl('button', 'small', '로그아웃');
-    logoutBtn.onclick = () => { adminKey = ''; store.set('mc-key', ''); buildSheet(); };
+    logoutBtn.onclick = () => {
+      postJson({ action: 'logout', key: adminKey }).catch(() => {});   // 서버의 토큰도 폐기
+      adminKey = '';
+      store.set('mc-key', '');
+      buildSheet();
+      refreshRoomUi();
+    };
     row.append(makeEl('span', '', '관리자 모드 켜짐'), logoutBtn);
     return [title, row];
   }
@@ -1023,7 +1198,13 @@ function buildAdminRows() {
     try {
       const res = await postJson({ action: 'auth', key });
       const data = await res.json().catch(() => ({}));
-      if (res.ok) { adminKey = key; store.set('mc-key', key); buildSheet(); return; }
+      if (res.ok && data.token) {
+        adminKey = data.token;   // 비밀번호는 저장하지 않고, 서버가 준 토큰만 저장
+        store.set('mc-key', adminKey);
+        buildSheet();
+        refreshRoomUi();
+        return;
+      }
       errorMsg.textContent = authErrorText(res, data);
     } catch (e) {
       errorMsg.textContent = '통신 오류';
@@ -1037,6 +1218,28 @@ function buildAdminRows() {
   return [title, row, errorMsg];
 }
 
+// 모스부호 표 (누르면 소리)
+let chartOpen = false;
+
+function buildChartRows() {
+  const title = makeEl('div', 'section-title', '모스부호 표');
+  const details = makeEl('details', 'chart');
+  details.open = chartOpen;
+  details.addEventListener('toggle', () => { chartOpen = details.open; });
+  details.append(makeEl('summary', '', `${settings.lang === 'ko' ? '한글' : '영문'} 부호 보기 (누르면 소리)`));
+
+  const grid = makeEl('div', 'chart-grid');
+  for (const [ch, code] of Object.entries(CODE_TABLE[settings.lang])) {
+    const btn = makeEl('button', 'chart-cell');
+    btn.append(makeEl('b', '', ch), makeEl('span', '', code));
+    btn.onclick = () => playMorse(code);
+    grid.append(btn);
+  }
+  details.append(grid);
+  if (settings.lang === 'ko') details.append(makeEl('div', 'chart-note', '쌍자음·겹받침·복합모음은 기본 자모를 이어서 표현해요.'));
+  return [title, details];
+}
+
 function buildSheet() {
   const panel = document.querySelector('.panel');
   const scrollTop = panel.scrollTop;
@@ -1046,6 +1249,7 @@ function buildSheet() {
   for (const section of SETTINGS_SCHEMA) {
     sheetBody.append(makeEl('div', 'section-title', section.title), ...section.items.map(buildRow));
   }
+  sheetBody.append(...buildChartRows());
 
   const resetBtn = makeEl('button', 'reset', '설정 초기화');
   resetBtn.onclick = () => {
@@ -1068,6 +1272,53 @@ sheet.addEventListener('click', e => { if (e.target === sheet) closeSheet(); });
 addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
 
 
+// 입력 중 표시 (내 상태 보내기)
+let typingActive = false, typingSentAt = 0, typingStopTimer;
+
+const sendTyping = on =>
+  postJson({ action: 'typing', room, uid, name: settings.name, on, key: adminKey }).catch(() => {});
+
+function noteTyping() {
+  if (!settings.typing || connection === 'local' || isLocked()) return;
+  if (adminKey && textInput.value[0] === '/') return;   // 관리자 명령어는 알리지 않음
+
+  clearTimeout(typingStopTimer);
+  typingStopTimer = setTimeout(stopTyping, 4000);
+
+  const now = Date.now();
+  if (now - typingSentAt > 2000) {
+    typingSentAt = now;
+    typingActive = true;
+    sendTyping(true);
+  }
+}
+
+function stopTyping() {
+  clearTimeout(typingStopTimer);
+  if (!typingActive) return;
+  typingActive = false;
+  typingSentAt = 0;
+  sendTyping(false);
+}
+
+// 다른 사람의 입력 중 표시
+function renderTyping(names) {
+  if (!settings.typing || !names.length) {
+    typingLine.textContent = '';
+    typingLine.classList.remove('on');
+    return;
+  }
+  let who;
+  if (!settings.showName) who = '누군가';
+  else if (names.length === 1) who = `${names[0]} 님이`;
+  else if (names.length === 2) who = `${names[0]}, ${names[1]} 님이`;
+  else who = `${names.length}명이`;
+
+  typingLine.textContent = `${who} 메시지를 쓰는 중…`;
+  typingLine.classList.add('on');
+}
+
+
 // 입력
 let morse = '';
 
@@ -1078,7 +1329,7 @@ function renderComposer() {
   previewText.style.display = mode === 'morse' ? 'none' : '';
   previewMorse.textContent = morse;
   previewText.textContent = morse ? decode(morse, settings.lang) : '';
-  sendBtn.disabled = !morse.trim() || isBlocked();
+  sendBtn.disabled = !morse.trim() || isBlocked() || isLocked();
 
   const skipped = countUnsupported(textInput.value, settings.lang);
   charWarn.textContent = skipped
@@ -1093,6 +1344,7 @@ const showMorseInInput = () => {
 
 function clearDraft() {
   cancelGapTimers();
+  stopTyping();
   morse = '';
   textInput.value = '';
   renderComposer();
@@ -1102,6 +1354,7 @@ textInput.addEventListener('input', () => {
   cancelGapTimers();
   morse = encode(textInput.value, settings.lang);
   renderComposer();
+  morse ? noteTyping() : stopTyping();
 });
 
 clearBtn.onclick = () => {
@@ -1117,6 +1370,7 @@ backspaceBtn.onclick = () => {
   morse = lastSpace < 0 ? '' : trimmed.slice(0, lastSpace) + ' ';
   showMorseInInput();
   renderComposer();
+  morse ? noteTyping() : stopTyping();
 };
 
 // 한/영 전환 (쓰던 내용은 비움)
@@ -1156,17 +1410,30 @@ function beep(start, duration) {
   osc.stop(start + duration + 0.01);
 }
 
-// 점 = 1단위, 선 = 3단위, 부호 사이 = 1단위
-function playMorse(code) {
+// 재생 중인 부호를 말풍선에서 강조 (말풍선이 다시 그려져도 매번 새로 찾음)
+function setLit(cid, index, on) {
+  const el = feed.querySelector(`.msg[data-cid="${cid}"] .morse`)?.children[index];
+  if (el) el.classList.toggle('lit', on);
+}
+
+function flash(cid, index, start, duration) {
+  if (!cid || !settings.highlight) return;
+  const now = audioCtx.currentTime;
+  setTimeout(() => setLit(cid, index, true), Math.max(0, (start - now) * 1000));
+  setTimeout(() => setLit(cid, index, false), Math.max(0, (start + duration - now) * 1000));
+}
+
+// 점 = 1단위, 선 = 3단위, 부호 사이 = 1단위 (cid를 주면 해당 말풍선을 강조)
+function playMorse(code, cid) {
   try {
     initAudio();
     const unit = dotMs() / 1000;
     let t = Math.max(audioCtx.currentTime + 0.05, playbackEndsAt);
-    for (const ch of code) {
-      if (ch === '.')      { beep(t, unit);     t += 2 * unit; }
-      else if (ch === '-') { beep(t, 3 * unit); t += 4 * unit; }
+    [...code].forEach((ch, i) => {
+      if (ch === '.')      { beep(t, unit);     flash(cid, i, t, unit);     t += 2 * unit; }
+      else if (ch === '-') { beep(t, 3 * unit); flash(cid, i, t, 3 * unit); t += 4 * unit; }
       else if (ch === ' ' || ch === '/') t += 2 * unit;
-    }
+    });
     playbackEndsAt = t + 0.4;
   } catch (e) {}
 }
@@ -1195,6 +1462,13 @@ function stopKeyTone() {
   keyOsc = null;
 }
 
+// 누르던 중에 잠기면 눌림 상태를 풀어줌
+function resetKey() {
+  pressStart = 0;
+  tapKey.classList.remove('down');
+  stopKeyTone();
+}
+
 // 잠깐 멈추면 글자 띄우기, 더 멈추면 단어 띄우기
 function scheduleGaps() {
   letterTimer = setTimeout(() => {
@@ -1208,11 +1482,12 @@ function scheduleGaps() {
 }
 
 function onKeyDown() {
-  if (pressStart) return;
+  if (pressStart || isLocked()) return;
   pressStart = performance.now();
   tapKey.classList.add('down');
   cancelGapTimers();
   initAudio();
+  noteTyping();
   if (settings.keySound) startKeyTone();
 }
 
@@ -1259,8 +1534,11 @@ const formatTime = t => {
 };
 
 function buildMessage(msg) {
-  const mine = msg.name === settings.name;
-  const wrap = makeEl('div', 'msg' + (mine ? ' mine' : '') + (msg.admin ? ' admin' : '') + (msg.pending ? ' pending' : ''));
+  const mine = !!msg.mine;
+  const canDelete = mine || !!adminKey;   // 관리자는 남의 메시지도 지울 수 있음
+  const wrap = makeEl('div', 'msg' + (mine ? ' mine' : '') + (msg.admin ? ' admin' : '') +
+    (msg.pending ? ' pending' : '') + (canDelete ? ' deletable' : ''));
+  wrap.dataset.cid = msg.cid;
 
   const meta = [];
   if (settings.showName && !mine) meta.push(msg.name);
@@ -1275,14 +1553,18 @@ function buildMessage(msg) {
   }
 
   const bubble = makeEl('div', 'bubble');
-  if (settings.display !== 'text') bubble.append(makeEl('div', 'morse', msg.morse));
+  if (settings.display !== 'text') {
+    const morseEl = makeEl('div', 'morse');
+    for (const ch of msg.morse) morseEl.append(makeEl('span', '', ch));   // 부호마다 span (재생 강조용)
+    bubble.append(morseEl);
+  }
   if (settings.display !== 'morse') bubble.append(makeEl('div', 'text', decode(msg.morse, msg.lang)));
-  attachBubbleActions(bubble, msg, mine);
+  attachBubbleActions(bubble, msg, canDelete);
   wrap.append(bubble);
   return wrap;
 }
 
-// 짧게 누름 = 소리 재생, 내 메시지 꾹 누름 = 삭제
+// 짧게 누름 = 소리 재생, 꾹 누름 = 삭제 (내 메시지 / 관리자)
 const LONG_PRESS_MS = 600;
 
 function attachBubbleActions(bubble, msg, deletable) {
@@ -1297,7 +1579,7 @@ function attachBubbleActions(bubble, msg, deletable) {
   });
   for (const type of ['pointerup', 'pointerleave', 'pointercancel']) bubble.addEventListener(type, cancel);
 
-  bubble.addEventListener('click', () => { if (!longPressed) playMorse(msg.morse); });
+  bubble.addEventListener('click', () => { if (!longPressed) playMorse(msg.morse, msg.cid); });
   bubble.addEventListener('contextmenu', e => { if (deletable) e.preventDefault(); });
 }
 
@@ -1312,7 +1594,7 @@ async function deleteMessage(msg) {
   }
 
   try {
-    const res = await postJson({ action: 'del', room, cid: msg.cid, key: adminKey });
+    const res = await postJson({ action: 'del', room, cid: msg.cid, uid, key: adminKey });
     const data = await res.json().catch(() => ({}));
     if (res.ok || res.status === 404) {   // 404 = 이미 지워진 메시지
       messages.delete(msg.cid);
@@ -1326,19 +1608,45 @@ async function deleteMessage(msg) {
   }
 }
 
+// 맨 아래 근처인지
+const atBottom = () => feed.scrollHeight - feed.scrollTop - feed.clientHeight < 80;
+
+// 다시 그린 뒤 맨 아래에 붙어 있게 했으면 true
 function renderFeed() {
   const list = [...messages.values()].sort((a, b) => a.t - b.t).slice(-100);
   if (!list.length) {
     feed.innerHTML = '<div class="empty">텍스트를 입력하거나 키를 눌러<br>모스부호로 대화해 보세요.</div>';
-    return;
+    return false;
   }
 
   // 맨 아래를 보고 있었으면 새 메시지에서도 아래로 따라감
-  const stickToBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 80 || feed.querySelector('.empty');
+  const stick = atBottom() || !!feed.querySelector('.empty');
+  const prevTop = feed.scrollTop;
   feed.textContent = '';
   for (const msg of list) feed.append(buildMessage(msg));
-  if (stickToBottom) feed.scrollTop = feed.scrollHeight;
+  feed.scrollTop = stick ? feed.scrollHeight : prevTop;
+  return stick;
 }
+
+
+// 새 메시지 알림 (위로 스크롤했거나 다른 탭에 있을 때)
+let unread = 0;
+
+function updateUnread() {
+  document.title = unread ? `(${unread}) Morse` : 'Morse';
+  newBtn.style.display = unread && !atBottom() ? 'block' : 'none';
+}
+
+feed.addEventListener('scroll', () => {
+  if (atBottom() && !document.hidden) unread = 0;
+  updateUnread();
+}, { passive: true });
+
+newBtn.onclick = () => {
+  feed.scrollTop = feed.scrollHeight;
+  unread = 0;
+  updateUnread();
+};
 
 
 // 서버 연결
@@ -1353,17 +1661,25 @@ function setConnection(state) {
   notice.textContent =
     state === 'local' ? '공유 서버가 연결되지 않아 이 기기에서만 보여요.' :
     state === 'off'   ? '연결이 불안정해요. 다시 시도하는 중…' : '';
+  if (state !== 'on') onlineEl.textContent = '';
 }
 
 function ingest(list) {
+  let fresh = 0;
   for (const msg of list) {
     if (msg.id > lastId) lastId = msg.id;
     const isNew = !messages.has(msg.cid);
     messages.set(msg.cid, msg);
-    if (isNew && !firstLoad && settings.autoPlay && msg.name !== settings.name) playMorse(msg.morse);
+    if (isNew && !firstLoad && !msg.mine) {
+      fresh++;
+      if (settings.autoPlay) playMorse(msg.morse, msg.cid);
+    }
   }
   firstLoad = false;
-  if (list.length) renderFeed();
+  if (!list.length) return;
+
+  const stuck = renderFeed();
+  if (fresh && (!stuck || document.hidden)) { unread += fresh; updateUnread(); }
 }
 
 // 서버에 남아 있는 메시지(cids)만 남기고 나머지는 지움 (from = 서버 목록의 가장 오래된 id)
@@ -1383,7 +1699,7 @@ async function poll() {
   if (polling || connection === 'local') return;
   polling = true;
   try {
-    const res = await fetch(`${API_URL}?room=${room}&since=${lastId}&rev=${deleteRev}`, { cache: 'no-store' });
+    const res = await fetch(`${API_URL}?room=${room}&since=${lastId}&rev=${deleteRev}&uid=${uid}`, { cache: 'no-store' });
     if (res.status === 404) return setConnection('local');
     if (res.status === 503) {
       const data = await res.json().catch(() => ({}));
@@ -1396,6 +1712,10 @@ async function poll() {
     setConnection('on');
     if (data.cids) pruneDeleted(data.cids, data.from || 0);
     deleteRev = String(data.rev ?? '');
+    if (data.state) applyRoomState(data.state);
+    renderTyping(data.typing || []);
+    onlineEl.textContent = data.online ? `${data.online}명 접속` : '';
+    if ((data.msgs && data.msgs.length) || (data.typing && data.typing.length)) wake();
     ingest(data.msgs || []);
   } catch (e) {
     setConnection(location.protocol === 'file:' ? 'local' : 'off');
@@ -1404,14 +1724,32 @@ async function poll() {
   }
 }
 
+// 폴링 간격: 활동이 없으면 점점 늦춤 (1.5초 → 3초 → 6초), 다른 탭에 있으면 최소 5초
+let idleSince = Date.now(), pollTimer;
+const wake = () => { idleSince = Date.now(); };
 
-// 전송 막힘 (도배 · 타임아웃 · 차단 · 서버 용량)
+function pollDelay() {
+  const idle = Date.now() - idleSince;
+  const base = idle > 300000 ? 6000 : idle > 60000 ? 3000 : 1500;
+  return document.hidden ? Math.max(base, 5000) : base;
+}
+
+function schedulePoll() {
+  clearTimeout(pollTimer);
+  pollTimer = setTimeout(async () => { await poll(); schedulePoll(); }, pollDelay());
+}
+
+for (const type of ['pointerdown', 'keydown']) addEventListener(type, wake, { passive: true });
+
+
+// 전송 막힘 (도배 · 슬로우 모드 · 타임아웃 · 차단 · 서버 용량)
 let blockedUntil = 0, blockTimer = null, blockReason = '';
 const isBlocked = () => Date.now() < blockedUntil;
 
 const BLOCK_PREFIX = {
   full: '서버 저장 공간이 가득 찼어요. ',
   timeout: '관리자에 의해 타임아웃 중이에요. ',
+  slow: '슬로우 모드 중이에요. ',
 };
 
 function startBlock(seconds, reason) {
@@ -1448,14 +1786,14 @@ function tickBlock() {
 }
 
 
-// 관리자 명령어 (/ban · /timeout · /unban, 서버가 처리)
+// 관리자 명령어 (서버가 처리)
 let cmdResultTimer;
 
 function showCmdResult(text, isError) {
   cmdResult.textContent = text;
   cmdResult.style.color = isError ? 'var(--bad)' : 'var(--mute)';
   clearTimeout(cmdResultTimer);
-  cmdResultTimer = setTimeout(() => cmdResult.textContent = '', 7000);
+  cmdResultTimer = setTimeout(() => cmdResult.textContent = '', Math.min(20000, Math.max(7000, text.length * 60)));
 }
 
 async function runAdminCommand(text) {
@@ -1463,7 +1801,11 @@ async function runAdminCommand(text) {
   try {
     const res = await postJson({ action: 'cmd', room, key: adminKey, text });
     const data = await res.json().catch(() => ({}));
-    if (res.status === 401) { adminKey = ''; store.set('mc-key', ''); }
+    if (res.status === 401) {   // 토큰이 만료됨
+      adminKey = '';
+      store.set('mc-key', '');
+      refreshRoomUi();
+    }
     showCmdResult(data.msg || (res.ok ? '완료' : `명령 실패 (${data.error || res.status})`), !res.ok);
     if (res.ok) poll();
   } catch (e) {
@@ -1476,7 +1818,7 @@ async function runAdminCommand(text) {
 const newClientId = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
 async function sendMessage() {
-  if (isBlocked()) return;
+  if (isBlocked() || isLocked()) return;
 
   const raw = textInput.value.trim();
   if (adminKey && raw[0] === '/') return runAdminCommand(raw);
@@ -1485,15 +1827,16 @@ async function sendMessage() {
   if (!code) return;
 
   // 먼저 흐리게 보여주고, 서버 응답을 받으면 확정
-  const msg = { cid: newClientId(), name: settings.name, morse: code, lang: settings.lang, t: Date.now(), pending: 1 };
+  const msg = { cid: newClientId(), name: settings.name, morse: code, lang: settings.lang, t: Date.now(), pending: 1, mine: true };
   clearDraft();
   messages.set(msg.cid, msg);
+  wake();
   renderFeed();
 
   if (connection === 'local') { msg.pending = 0; renderFeed(); return; }
 
   try {
-    const res = await postJson({ room, name: msg.name, morse: code, lang: msg.lang, cid: msg.cid, key: adminKey });
+    const res = await postJson({ room, name: msg.name, morse: code, lang: msg.lang, cid: msg.cid, uid, key: adminKey });
     const data = await res.json().catch(() => ({}));
 
     if (res.status === 404 || (res.status === 503 && data.error !== 'full')) {
@@ -1503,8 +1846,19 @@ async function sendMessage() {
       return;
     }
     if (!res.ok) {
+      // 채팅이 닫힌 방 (관리자 토큰이 만료됐다면 일반 사용자로 취급되어 여기로 옴)
+      if (data.error === 'closed') {
+        const wasAdmin = !!adminKey;
+        if (wasAdmin) { adminKey = ''; store.set('mc-key', ''); }
+        applyRoomState({ ...roomState, closed: true });
+        if (wasAdmin) { renderFeed(); showCmdResult('관리자 인증이 만료됐어요. 설정에서 다시 로그인하세요.', true); }
+        messages.delete(msg.cid);
+        renderFeed();
+        return;
+      }
+
       const banned = data.error === 'banned';
-      if (banned || ['rate', 'full', 'timeout'].includes(data.error)) {
+      if (banned || ['rate', 'full', 'timeout', 'slow'].includes(data.error)) {
         startBlock(banned ? Infinity : (data.retryAfter || +res.headers.get('Retry-After') || 60), banned ? 'ban' : data.error);
         messages.delete(msg.cid);   // 막힌 메시지는 목록에서 바로 지움
         renderFeed();
@@ -1514,6 +1868,8 @@ async function sendMessage() {
     }
 
     msg.pending = 0;
+    // 슬로우 모드면 서버가 막기 전에 미리 대기 (쓴 메시지가 날아가지 않게)
+    if (roomState.slow && !adminKey) startBlock(roomState.slow, 'slow');
     poll();
   } catch (e) {
     msg.pending = 0;
@@ -1535,10 +1891,21 @@ try {
 } catch (e) {}
 
 if (location.protocol === 'file:') setConnection('local');
-setInterval(() => { if (!document.hidden) poll(); }, 1500);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
+
+document.addEventListener('visibilitychange', () => {
+  wake();
+  if (!document.hidden) {
+    if (atBottom()) unread = 0;
+    updateUnread();
+  }
+  poll();
+  schedulePoll();
+});
+
 applySettings();
+renderRoomBar();
 poll();
+schedulePoll();
 </script>
 </body>
 </html>
