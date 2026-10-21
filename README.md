@@ -25,7 +25,6 @@
 ## 파일 구조
 
 ```
-.
 ├── index.html              # 화면 뼈대 (HTML)
 ├── package.json
 ├── tsconfig.json           # 프론트엔드 TS 설정
