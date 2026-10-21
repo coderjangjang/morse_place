@@ -207,4 +207,3 @@ npm run build       # 타입 검사 후 dist/ 로 빌드
 - 타임아웃·도배 제한 남은 시간이 새로고침 후에도 유지
 - 화면 문구에서 이모지 제거
 - README 추가
-ing README.md…]()
