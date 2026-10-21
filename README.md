@@ -4,8 +4,8 @@
 
 글자를 입력하면 모스부호로 바뀌어 전송되고, 탭 키를 직접 두드려서 보낼 수도 있어요. 받은 메시지는 모스부호와 해독된 글자를 같이 보여주고, 눌러서 소리로 들을 수도 있어요. 영문과 한글을 모두 지원하고, 별도 가입 없이 링크 하나로 방에 들어와서 바로 대화할 수 있어요.
 
-- 프론트엔드: 순수 HTML / CSS / JavaScript 한 파일
-- 백엔드: Vercel Serverless Function + Redis
+- 프론트엔드: TypeScript + Vite (HTML / CSS / TS 모듈)
+- 백엔드: Vercel Serverless Function (TypeScript) + Redis
 - 실시간 방식: 폴링 (기본 1.5초, 활동이 없으면 최대 6초까지 늘어나요)
 
 ## 주요 기능
@@ -26,14 +26,41 @@
 
 ```
 .
-├── index.html          # 프론트엔드 (HTML + CSS + JS 한 파일)
+├── index.html              # 화면 뼈대 (HTML)
+├── package.json
+├── tsconfig.json           # 프론트엔드 TS 설정
+├── public/
+│   └── favicon.ico
+├── src/                    # 프론트엔드 (TypeScript)
+│   ├── main.ts             # 진입점 (모듈 연결 · 시작)
+│   ├── style.css           # 스타일
+│   ├── morse.ts            # 모스부호 표 · 한글 분해/조합 · 인코딩/디코딩
+│   ├── state.ts            # 설정 · 방 · 관리자 토큰 · 메시지 목록 등 공용 상태
+│   ├── api.ts              # 서버 통신
+│   ├── dom.ts              # 요소 참조 · DOM 도구
+│   ├── storage.ts          # localStorage · 기기 ID
+│   ├── composer.ts         # 입력창 · 미리보기
+│   ├── tapkey.ts           # 탭 키 (버튼 · 스페이스바)
+│   ├── audio.ts            # 모스부호 소리 재생
+│   ├── typing.ts           # 입력 중 표시
+│   ├── feed.ts             # 메시지 목록 · 삭제 · 새 메시지 알림
+│   ├── room.ts             # 방 · 초대 링크 · 방 상태 · 입력 잠금
+│   ├── settings.ts         # 설정 적용 · 한/영 전환
+│   ├── sheet.ts            # 설정 화면
+│   ├── block.ts            # 전송 제한 안내
+│   ├── admin.ts            # 관리자 명령어
+│   ├── poll.ts             # 서버 연결 · 폴링
+│   └── send.ts             # 메시지 전송
+├── shared/
+│   └── types.ts            # 서버 · 프론트 공용 타입 (API 요청/응답, 메시지 등)
 └── api/
-    └── messages.js     # Vercel Serverless Function (GET/POST /api/messages)
+    ├── messages.ts         # Vercel Serverless Function (GET/POST /api/messages)
+    └── tsconfig.json       # 서버 TS 설정
 ```
 
 ## 배포 (Vercel + Redis)
 
-1. 이 프로젝트를 Vercel에 올려요.
+1. 이 프로젝트를 Vercel에 올려요. Vite 프로젝트로 자동 인식돼서 `npm run build` 결과(`dist/`)가 배포되고, `api/` 안의 TypeScript 함수는 Vercel이 알아서 빌드해요.
 2. 환경변수를 설정해요.
 
    | 이름 | 설명 |
@@ -42,6 +69,18 @@
    | `ADMIN_PASSWORD` | 관리자 비밀번호 (없으면 관리자 기능 비활성) |
 
 서버가 연결되지 않으면 이 기기에서만 보이는 로컬 모드로 동작해요.
+
+## 개발
+
+```bash
+npm install
+npm run dev         # 화면만 실행 (Vite). 서버가 없으면 로컬 모드로 동작해요
+npx vercel dev      # 화면 + API 함께 실행 (REDIS_URL, ADMIN_PASSWORD 필요)
+npm run typecheck   # 프론트엔드 + 서버 타입 검사
+npm run build       # 타입 검사 후 dist/ 로 빌드
+```
+
+`favicon.ico`는 `public/` 폴더에 넣어요.
 
 ## 사용법
 
@@ -92,6 +131,8 @@
 
 `/api/messages`
 
+요청·응답 타입은 `shared/types.ts`에 정의돼 있고, 서버와 프론트가 같이 써요. POST 요청은 `action` 값으로 구분되는 유니온 타입(`PostBody`)이에요.
+
 ### GET
 
 `?room=방이름&since=마지막id&rev=삭제횟수&uid=기기ID`
@@ -125,6 +166,21 @@
 
 ## Changelog
 
+### 2026-10-21
+
+- JavaScript → TypeScript 전환 (`strict` 모드)
+  - 서버: `api/messages.js` → `api/messages.ts`
+  - 프론트엔드: `index.html` 안에 있던 CSS · JS를 `src/style.css` 와 기능별 TS 모듈(`src/*.ts`)로 분리하고, `index.html`은 화면 뼈대만 남김
+  - Vite 빌드 도입 (`npm run build`), 타입 검사 스크립트 추가 (`npm run typecheck`)
+  - 서버와 프론트가 쓰는 요청/응답 타입을 `shared/types.ts` 하나로 통합 (메시지, 방 상태, GET 응답, `action` 별 POST 요청/응답, 에러 코드)
+  - 설정 값, 메시지, 연결 상태 등에 타입을 붙이고, 설정 항목 정의도 타입으로 검사
+- 기능, API, 저장 데이터(localStorage 키 · Redis 키)는 그대로라 기존 사용자 설정과 로그인은 유지돼요
+- 내부 정리
+  - 관리자 토큰 저장/삭제를 `setAdminKey()` 한 곳으로 모음
+  - 메시지의 전송 중 · 실패 상태를 `0/1` 대신 `true/false`로 변경
+  - 모듈 간 전역 변수 대신 `state` 객체로 상태 공유
+- 개발 환경: `package.json`, `tsconfig.json`(프론트엔드 · `api/`용 각각), `.gitignore` 추가
+
 ### 2026-10-11
 
 - 관리자 `/close`, `/open` 추가 (닫힌 방은 관리자 외 전송 불가, 모든 사용자 화면에 실시간 반영)
@@ -151,3 +207,4 @@
 - 타임아웃·도배 제한 남은 시간이 새로고침 후에도 유지
 - 화면 문구에서 이모지 제거
 - README 추가
+ing README.md…]()
